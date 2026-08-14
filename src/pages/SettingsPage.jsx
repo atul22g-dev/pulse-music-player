@@ -1,0 +1,268 @@
+import { Palette, SlidersHorizontal, Database, Info, Check, Moon, Sun, MonitorSmartphone, RefreshCw, Trash2, Heart, History, Sparkles } from "lucide-react";
+import { usePlayer } from "../context/PlayerContext";
+import { ACCENTS, THEMES } from "../config/playerSettings";
+import Toggle from "../components/Toggle";
+import { isLiveApiConfigured, YOUTUBE_PLAYLISTS } from "../services/youtubeService";
+import { STORAGE_KEYS } from "../services/storage";
+
+const THEME_META = {
+  dark: { label: "Dark", desc: "Premium default", icon: Moon },
+  oled: { label: "OLED", desc: "True black", icon: MonitorSmartphone },
+  light: { label: "Light", desc: "Clean & bright", icon: Sun },
+};
+
+const ACCENT_HEX = {
+  purple: "#8b5cf6",
+  blue: "#3b82f6",
+  pink: "#ec4899",
+  green: "#10b981",
+  orange: "#f97316",
+};
+
+function Card({ title, icon: Icon, children, className = "" }) {
+  return (
+    <section className={`card p-5 sm:p-6 ${className}`}>
+      <h2 className="mb-5 flex items-center gap-2.5 font-display text-[15px] font-bold text-ink">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15 text-accent">
+          <Icon size={16} />
+        </span>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+export default function SettingsPage() {
+  const {
+    settings, updateSettings, setVolume, volume,
+    clearRecentlyPlayed, clearFavorites, resetApp, recent, favorites,
+    reanalyzeMoods, catalog,
+  } = usePlayer();
+
+  return (
+    <div className="animate-fade-up mx-auto max-w-3xl space-y-6">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-accent">Preferences</p>
+        <h1 className="mt-1.5 font-display text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">Settings</h1>
+        <p className="prose-dim mt-2">Everything is saved locally — themes, accents, playback and history.</p>
+      </div>
+
+      {/* appearance */}
+      <Card title="Appearance" icon={Palette}>
+        <p className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-faint">Theme</p>
+        <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme">
+          {THEMES.map((t) => {
+            const meta = THEME_META[t];
+            const Icon = meta.icon;
+            const active = settings.theme === t;
+            return (
+              <button
+                key={t}
+                role="radio"
+                aria-checked={active}
+                onClick={() => updateSettings({ theme: t })}
+                className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 ${
+                  active ? "border-accent/50 bg-accent/[0.08] shadow-glow-sm" : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                }`}
+              >
+                <Icon size={18} className={active ? "text-accent" : "text-dim"} />
+                <p className="mt-3 text-[13px] font-semibold text-ink">{meta.label}</p>
+                <p className="mt-0.5 text-[11px] text-dim">{meta.desc}</p>
+                {active && (
+                  <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full accent-gradient-bg text-accent-ink">
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mb-3 mt-7 text-[12px] font-semibold uppercase tracking-wider text-faint">Accent color</p>
+        <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Accent color">
+          {ACCENTS.map((a) => {
+            const active = settings.accent === a;
+            return (
+              <button
+                key={a}
+                role="radio"
+                aria-checked={active}
+                aria-label={`${a} accent`}
+                onClick={() => updateSettings({ accent: a })}
+                className={`flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 hover:scale-110 active:scale-95 ${
+                  active ? "shadow-glow" : ""
+                }`}
+                style={{ background: ACCENT_HEX[a], boxShadow: active ? `0 0 0 3px rgb(var(--bg)), 0 0 0 5px ${ACCENT_HEX[a]}66, 0 0 22px ${ACCENT_HEX[a]}88` : undefined }}
+              >
+                {active && <Check size={17} strokeWidth={3} className="text-white" />}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* playback */}
+      <Card title="Playback" icon={SlidersHorizontal}>
+        <div className="space-y-6">
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label htmlFor="vol" className="text-[13.5px] font-medium text-ink">Volume</label>
+              <span className="font-mono text-[12px] tabular-nums text-faint">{Math.round(volume * 100)}%</span>
+            </div>
+            <input
+              id="vol"
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              onChange={(e) => setVolume(Number(e.target.value) / 100)}
+              className="range-input"
+              style={{ "--fill": `${volume * 100}%` }}
+            />
+          </div>
+          <div className="space-y-5 border-t border-white/[0.06] pt-5">
+            <Toggle
+              checked={settings.autoplay}
+              onChange={(v) => updateSettings({ autoplay: v })}
+              label="Autoplay"
+              description="When the queue ends, keep the music going with a fresh shuffle."
+            />
+            <Toggle
+              checked={settings.crossfade}
+              onChange={(v) => updateSettings({ crossfade: v })}
+              label="Crossfade"
+              description="Smoothly blend the end of one track into the next."
+            />
+            <Toggle
+              checked={settings.reduceMotion}
+              onChange={(v) => updateSettings({ reduceMotion: v })}
+              label="Reduce animations"
+              description="Calm the interface down — minimal motion everywhere."
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* data */}
+      <Card title="Your data" icon={Database}>
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={clearRecentlyPlayed}
+            disabled={recent.length === 0}
+            className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-white/15 disabled:opacity-40"
+          >
+            <History size={17} className="text-dim" />
+            <span className="flex-1">
+              <span className="block text-[13px] font-semibold text-ink">Clear recently played</span>
+              <span className="block text-[11.5px] text-dim">{recent.length} entries in history</span>
+            </span>
+            <Trash2 size={15} className="text-faint" />
+          </button>
+          <button
+            type="button"
+            onClick={clearFavorites}
+            disabled={favorites.length === 0}
+            className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-white/15 disabled:opacity-40"
+          >
+            <Heart size={17} className="text-dim" />
+            <span className="flex-1">
+              <span className="block text-[13px] font-semibold text-ink">Clear favorites</span>
+              <span className="block text-[11.5px] text-dim">{favorites.length} hearted tracks</span>
+            </span>
+            <Trash2 size={15} className="text-faint" />
+          </button>
+          <button
+            type="button"
+            onClick={resetApp}
+            className="flex w-full items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/[0.06] px-4 py-3 text-left transition-colors hover:border-rose-400/40"
+          >
+            <RefreshCw size={17} className="text-rose-400" />
+            <span className="flex-1">
+              <span className="block text-[13px] font-semibold text-ink">Reset application</span>
+              <span className="block text-[11.5px] text-dim">Wipe all local data and start fresh</span>
+            </span>
+          </button>
+        </div>
+      </Card>
+
+      {/* mood playlists */}
+      <Card title="Mood playlists" icon={Sparkles}>
+        <p className="text-[12.5px] leading-relaxed text-dim">
+          Every song is matched into the mood playlists automatically by keyword
+          and artist rules — so when you add new songs to your YouTube playlists,
+          they land in the fitting moods on their own. Currently{' '}
+          <span className="font-semibold text-ink">{catalog.length}</span> songs
+          are classified.
+        </p>
+        <button
+          type="button"
+          onClick={reanalyzeMoods}
+          disabled={catalog.length === 0}
+          className="btn-ghost mt-4 disabled:pointer-events-none disabled:opacity-40"
+        >
+          <Sparkles size={15} /> Re-analyze moods
+        </button>
+        <p className="mt-3 text-[11px] leading-relaxed text-faint">
+          Tune the matching rules in{' '}
+          <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10.5px] text-ink">src/services/moodClassifier.js</span>.
+        </p>
+      </Card>
+
+      {/* about */}
+      <Card title="About & shortcuts" icon={Info}>
+        <div className="space-y-4">
+          <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[12.5px] text-dim">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <RefreshCw size={14} className="text-accent" />
+              <span className="font-semibold text-ink">YouTube playlist sync</span>
+              <span>·</span>
+              {isLiveApiConfigured() ? (
+                <span className="text-emerald-400">Live API connected</span>
+              ) : (
+                <span>Syncing live, no API key needed</span>
+              )}
+            </div>
+            <ul className="flex flex-wrap gap-1.5">
+              {YOUTUBE_PLAYLISTS.map((p) => (
+                <li key={p.id} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1">
+                  <span className="text-[12px] font-semibold text-ink">{p.name}</span>
+                  <span className="font-mono text-[10.5px] text-faint">{p.id}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11.5px] leading-relaxed text-faint">
+              Managed in <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-ink">src/config/youtubePlaylists.js</span> —
+              add a playlist id + name there and it becomes its own playlist in the app. Playback is read and
+              streamed through YouTube's official player. Set
+              <span className="mx-1 rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-ink">VITE_YOUTUBE_API_KEY</span>
+              to switch sync to the REST API instead.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+            {[
+              ["Space", "Play / pause"],
+              ["← / →", "Seek ±5s"],
+              ["Shift + ← / →", "Previous / next"],
+              ["↑ / ↓", "Volume"],
+              ["F", "Favorite track"],
+            ].map(([key, action]) => (
+              <div key={key} className="flex items-center justify-between gap-2">
+                <kbd className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 font-mono text-[11px] text-ink">{key}</kbd>
+                <span className="text-right text-[11.5px] text-dim">{action}</span>
+              </div>
+            ))}
+          </div>
+
+          <p className="border-t border-white/[0.06] pt-4 text-center text-[11px] leading-relaxed text-faint">
+            Tracks play through YouTube's official embed — nothing is downloaded or extracted. If YouTube is
+            unreachable or a video is blocked, PULSE falls back to an original ambient preview generated locally.
+            Playback state persists via <span className="font-mono">{STORAGE_KEYS.queue}</span>.
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+}
