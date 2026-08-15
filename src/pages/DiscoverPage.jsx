@@ -201,7 +201,7 @@ export default function DiscoverPage() {
       )}
       <p className="flex items-center justify-center gap-2 pb-4 text-[11.5px] text-faint">
         <Compass size={13} />
-        {pluralize(catalog.length, "song")} · {pluralize(artists.length, "artist")} ·{" "}
+        {pluralize(catalog.length, "track")} · {pluralize(artists.length, "artist")} ·{" "}
         {pluralize(albums.length, "album")} — more shelves coming as your library grows
       </p>
     </div>

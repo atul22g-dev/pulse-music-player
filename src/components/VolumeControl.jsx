@@ -42,7 +42,7 @@ export default function VolumeControl({ className = "" }) {
           value={pct}
           aria-label="Volume"
           onChange={(e) => setVolume(Number(e.target.value) / 100)}
-          className="range-input w-24 [writing-mode:vertical-lr] rotate-180"
+          className="range-input range-input-vertical [writing-mode:vertical-lr] rotate-180"
           style={{ "--fill": `${pct}%` }}
         />
       </div>

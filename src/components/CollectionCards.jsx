@@ -3,6 +3,7 @@ import { Play, Clock } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import { albumPlaylistId } from "../data/playlists";
 import Artwork from "./Artwork";
+import { getPlaylistArt } from "./artwork/playlistArtRegistry";
 import { pluralize, formatTime } from "../utils/format";
 
 function PlayOverlay({ size = 46 }) {
@@ -58,7 +59,7 @@ export function AlbumCard({ album }) {
       </div>
       <h3 className="line-clamp-1 text-[13.5px] font-semibold text-ink">{album.name}</h3>
       <p className="mt-0.5 line-clamp-1 text-[12px] text-dim">
-        {album.artist} · {pluralize(tracks.length, "song")}
+        {album.artist} · {pluralize(tracks.length, "track")}
       </p>
     </Link>
   );
@@ -97,7 +98,7 @@ export function ArtistCard({ artist }) {
         </button>
       </div>
       <h3 className="line-clamp-1 text-[13.5px] font-semibold text-ink">{artist.name}</h3>
-      <p className="mt-0.5 text-[12px] text-dim">{pluralize(tracks.length, "song")}</p>
+      <p className="mt-0.5 text-[12px] text-dim">{pluralize(tracks.length, "track")}</p>
     </Link>
   );
 }
@@ -105,6 +106,7 @@ export function ArtistCard({ artist }) {
 export function PlaylistCard({ playlist, tracks, to }) {
   const { playTrack } = usePlayer();
   const thumbs = tracks.slice(0, 4);
+  const PlaylistArt = getPlaylistArt(playlist.name);
 
   const play = (e) => {
     e.preventDefault();
@@ -119,7 +121,9 @@ export function PlaylistCard({ playlist, tracks, to }) {
       aria-label={`Open playlist ${playlist.name}`}
     >
       <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-2xl">
-        {thumbs.length > 1 ? (
+        {PlaylistArt ? (
+          <PlaylistArt className="h-full w-full" rounded="rounded-none" />
+        ) : thumbs.length > 1 ? (
           <div className="grid h-full w-full grid-cols-2 grid-rows-2">
             {thumbs.map((t) => (
               <Artwork key={t.id} src={t.thumbnail} alt="" gradient={t.gradient} className="h-full w-full rounded-none" />

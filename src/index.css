@@ -252,6 +252,18 @@ html[data-reduce-motion="true"] *::after {
     );
     outline: none;
   }
+  /* vertical variant (used by the volume popover): the track runs along the
+     inline axis, so the length lives on `height` and the fill must follow it */
+  .range-input.range-input-vertical {
+    @apply h-24 w-1.5;
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--accent)) 0%,
+      rgb(var(--accent)) var(--fill, 0%),
+      rgb(var(--border) / 0.14) var(--fill, 0%),
+      rgb(var(--border) / 0.14) 100%
+    );
+  }
   .range-input::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;

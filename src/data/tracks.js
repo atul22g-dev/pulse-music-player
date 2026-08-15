@@ -11,26 +11,36 @@
  * the catalog is refreshed.
  */
 
-import { getPlaylists } from "../services/playlistService";
+import { gradientFromSeed } from "../utils/artwork";
 
 export let tracks = [];
+
+// The legacy shared fallback — treated as "no gradient provided" so cached
+// catalogs from before SVG artwork re-seed each item with its own colors.
+const DEFAULT_GRADIENT = ["#6366f1", "#ec4899"];
 
 export const getAllTracks = () => tracks;
 
 export const getTrack = (id) => tracks.find((t) => t.id === id) || null;
 
 function normalize(raw, id) {
+  const seed = raw.youtubeId || raw.id || id;
+  const rawGradient = Array.isArray(raw.gradient) ? raw.gradient : null;
+  const hasCustomGradient =
+    rawGradient &&
+    !(rawGradient[0] === DEFAULT_GRADIENT[0] && rawGradient[1] === DEFAULT_GRADIENT[1]);
   return {
-    id: raw.youtubeId || raw.id || id,
+    id: seed,
     title: raw.title || `YouTube Track ${id.slice(0, 8)}`,
     artist: raw.artist || "Unknown Artist",
     album: raw.album || "Personal Songs",
     duration: raw.duration || 0,
     source: "youtube",
-    youtubeId: raw.youtubeId || raw.id || id,
-    thumbnail:
-      raw.thumbnail || `https://i.ytimg.com/vi/${raw.youtubeId || raw.id || id}/hqdefault.jpg`,
-    gradient: raw.gradient || ["#6366f1", "#ec4899"],
+    youtubeId: seed,
+    // Real YouTube thumbnail when available; otherwise a stable color seed
+    // for the generated SVG artwork.
+    thumbnail: raw.thumbnail || seed,
+    gradient: hasCustomGradient ? rawGradient : gradientFromSeed(seed),
     // Which configured YouTube playlist(s) contain this track. A video shared
     // by two playlists appears once in the library but in both playlists.
     playlistIds: Array.isArray(raw.playlistIds)
@@ -149,6 +159,8 @@ export function getArtists() {
     .map(([name, list]) => ({
       name,
       tracks: list,
+      // Artist art = the first track's real YouTube thumbnail (falls back to
+      // the generated SVG seed when no thumbnail URL exists yet).
       thumbnail: list[0].thumbnail,
       gradient: list[0].gradient,
     }))
@@ -158,11 +170,10 @@ export function getArtists() {
 /**
  * Albums derived from the live catalog. Tracks are stamped with their
  * playlist's name as the album at sync time (see PlayerContext), so each API
- * playlist becomes its own album; artwork falls back to the playlist's image
- * from the API when available.
+ * playlist becomes its own album. Album artwork is a generated SVG seeded
+ * from the album name.
  */
 export function getAlbums() {
-  const configs = new Map(getPlaylists().map((c) => [c.name, c]));
   const map = new Map();
   for (const t of tracks) {
     if (!map.has(t.album)) map.set(t.album, []);
@@ -170,14 +181,14 @@ export function getAlbums() {
   }
   return [...map.entries()]
     .map(([name, list]) => {
-      const cfg = configs.get(name);
       return {
         name,
         artist: list[0].artist,
         tracks: list,
-        thumbnail: cfg?.artwork || list[0].thumbnail,
+        // SVG artwork seeds — derived from the album name, never a URL.
+        thumbnail: name,
         gradient: list[0].gradient,
-        artwork: cfg?.artwork || "",
+        artwork: name,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

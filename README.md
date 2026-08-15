@@ -171,11 +171,14 @@ endpoint URL can be swapped via `VITE_PLAYLISTS_API_URL`.
 - ARIA labels throughout, focus-visible rings, semantic landmarks, keyboard
   navigation on song rows, `prefers-reduced-motion` + in-app reduce-motion.
 - Lazy-loaded routes, memoized song lists, canvas visualizer (single rAF),
-  thumbnail fallbacks, skeleton loaders, toast notifications.
+  skeleton loaders, toast notifications.
 
 ## Notes
 
-- Album artwork comes from YouTube's public image CDN (same images YouTube
-  embeds use) and falls back to a generated gradient if it ever fails.
+- Track thumbnails stream from YouTube's public image CDN (the same images
+  YouTube embeds use) with an automatic fallback to a generated gradient.
+  Playlist and album artwork is generated locally as SVG — bespoke
+  illustrations for known playlists, or a deterministic gradient seeded from
+  each name — so no images are ever pulled from the playlist API.
 - This is a frontend-only demo: no accounts, no backend. All state is local to
   the browser.

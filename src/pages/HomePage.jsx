@@ -104,7 +104,7 @@ export default function HomePage() {
 
       <p className="flex items-center justify-center gap-2 pb-4 text-[11.5px] text-faint">
         <ListMusic size={13} />
-        Built with PULSE · {catalog.length} songs synced from your YouTube playlists
+        Built with PULSE · {catalog.length} tracks synced from your YouTube playlists
       </p>
     </div>
   );

@@ -75,8 +75,9 @@ export function normalizePlaylists(payload) {
       id: String(id),
       name: String(name),
       description: p.description || p.desc || "",
-      // Album artwork from the API (the Atual API exposes it as `bg`).
-      artwork: p.bg || p.thumbnail || p.cover || "",
+      // SVG artwork seed — the playlist name, so known playlists resolve to
+      // bespoke artwork (never a remote URL).
+      artwork: String(name),
     });
   }
   return out;

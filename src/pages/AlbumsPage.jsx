@@ -62,7 +62,7 @@ function AlbumDetail({ name }) {
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-accent">Album</p>
           <h1 className="mt-1.5 font-display text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">{album.name}</h1>
           <p className="mt-2 text-[13px] font-medium text-dim">
-            {album.artist} · {pluralize(tracks.length, "song")} · {formatListDuration(tracks.reduce((s, t) => s + t.duration, 0))}
+            {album.artist} · {pluralize(tracks.length, "track")} · {formatListDuration(tracks.reduce((s, t) => s + t.duration, 0))}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <button type="button" onClick={playAll} className="btn-primary">

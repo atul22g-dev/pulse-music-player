@@ -63,7 +63,7 @@ export const getAlbumPlaylists = () => {
           id: albumPlaylistId(a.name),
           name: a.name,
           description: cfg?.description || `Album · ${a.artist}`,
-          artwork: cfg?.artwork || a.thumbnail || "",
+          artwork: a.thumbnail || "",
           isAlbum: true,
           get trackIds() {
             const ids = [];

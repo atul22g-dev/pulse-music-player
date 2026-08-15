@@ -5,6 +5,7 @@ import { usePlayer } from "../context/PlayerContext";
 import SongList from "../components/SongList";
 import EmptyState from "../components/EmptyState";
 import Artwork from "../components/Artwork";
+import { getPlaylistArt } from "../components/artwork/playlistArtRegistry";
 import { SkeletonSongRow } from "../components/Skeleton";
 import { getPlaylist, getMainPlaylist } from "../data/playlists";
 import { getPlaylistTracks, getPlaylistDuration } from "../utils/library";
@@ -67,6 +68,7 @@ export default function PlaylistPage() {
 
   const thumbs = baseTracks.slice(0, 4);
   const totalDuration = baseTracks.reduce((sum, t) => sum + t.duration, 0);
+  const PlaylistArt = getPlaylistArt(playlist.name);
 
   const playAll = () => {
     if (!baseTracks.length) return;
@@ -85,13 +87,17 @@ export default function PlaylistPage() {
       {/* header */}
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
         <div className="relative shrink-0">
-          <div className="grid h-40 w-40 grid-cols-2 overflow-hidden rounded-2xl shadow-glow sm:h-48 sm:w-48">
-            {thumbs.map((t) => (
-              <Artwork key={t.id} src={t.thumbnail} alt="" gradient={t.gradient} className="h-full w-full rounded-none" />
-            ))}
-          </div>
+          {PlaylistArt ? (
+            <PlaylistArt className="h-40 w-40 rounded-2xl shadow-glow sm:h-48 sm:w-48" alt={`${playlist.name} artwork`} />
+          ) : (
+            <div className="grid h-40 w-40 grid-cols-2 overflow-hidden rounded-2xl shadow-glow sm:h-48 sm:w-48">
+              {thumbs.map((t) => (
+                <Artwork key={t.id} src={t.thumbnail} alt="" gradient={t.gradient} className="h-full w-full rounded-none" />
+              ))}
+            </div>
+          )}
           <span className="absolute -bottom-2 -right-2 rounded-xl border border-white/10 bg-surface/95 px-2.5 py-1.5 text-[11px] font-semibold text-ink shadow-soft backdrop-blur">
-            {pluralize(baseTracks.length, "song")}
+            {pluralize(baseTracks.length, "track")}
           </span>
         </div>
 
@@ -102,7 +108,7 @@ export default function PlaylistPage() {
           </h1>
           <p className="prose-dim mt-2 max-w-xl">{playlist.description}</p>
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] font-medium text-dim">
-            <span>{pluralize(baseTracks.length, "song")}</span>
+            <span>{pluralize(baseTracks.length, "track")}</span>
             <span className="text-faint">·</span>
             <span>{formatListDuration(totalDuration)}</span>
             {isYouTubePlaylist && (
