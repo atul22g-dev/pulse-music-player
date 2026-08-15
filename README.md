@@ -25,7 +25,7 @@ npm run preview    # serve the production build
 
 | Area | Highlights |
 | --- | --- |
-| **Home** | Featured hero player with vinyl artwork, visualizer, progress; Jump back in; mood playlists; favorites; trending |
+| **Home** | Featured hero player with vinyl artwork, visualizer, progress; Jump back in; your playlists; favorites; trending |
 | **Discover** | Recently played shelf, recommended mixes, trending list, favorites shelf, continue listening |
 | **Playlist** | Header collage, play-all/shuffle, live filter, sort by title/artist/duration, YouTube-sync indicator, saved playlists |
 | **Favorites** | Songs / Artists / Albums tabs, empty states |
@@ -50,8 +50,8 @@ src/
 ├── layouts/         AppLayout — sidebar + header + mini player + bottom nav
 ├── context/         PlayerContext (global player state) + ToastContext
 ├── hooks/           useFirstVisitLoading, useMediaQuery
-├── services/        audioEngine (playback), youtubeService (API), moodClassifier, storage
-├── config/          youtubePlaylists.js — manage your playlists here
+├── services/        audioEngine (playback), youtubeService (API), playlistService
+│                    (playlists from API), storage
 ├── data/            tracks.js (live catalog), playlists.js (playlist objects)
 ├── utils/           formatting, seeded RNG, sharing, library helpers
 └── App.jsx          Router + lazy-loaded pages
@@ -94,33 +94,52 @@ Swap in any other provider later without touching the player context or UI.
 ## Configuring your playlists (no hardcoded tracks)
 
 **The song catalog is 100% live — there is no hardcoded track list anywhere.**
-All playlists are managed in one config file:
+The playlists PULSE tracks are fetched at boot from the Atual API
+(`https://apis-atual-dev.vercel.app/api/playlists`), authenticated with the
+**API key** — sent as the `X-API-Key` header and the `api_key` query param.
+Set it in `.env.local`:
 
 ```js
-// src/config/youtubePlaylists.js
-
-export const YOUTUBE_PLAYLISTS = [
-  {
-    id: "PLIV4nZCjWE3E",
-    name: "Personal Songs",
-    description: "Your personal collection, beautifully organized.",
-  },
-  // Add more playlists here — each becomes its own playlist in the app:
-  // {
-  //   id: "PLxxxxxx",
-  //   name: "Workout Mix",
-  //   description: "Energy for the gym.",
-  // },
-];
+// .env.local
+VITE_ATUAL_API_KEY=your-key-here
 ```
 
-- Paste any YouTube playlist id (from `?list=...`) plus a name, and it becomes
-  its own playlist — the sidebar shows a **Your Playlists** section and each
-  entry gets a `/playlist/:id` page.
-- Songs across **all** configured playlists are aggregated into the library
+…or paste it at runtime in **Settings → Playlist API** (saved locally, no
+rebuild needed).
+
+The endpoint returns a `{ "data": [...] }` wrapper of playlist objects (a bare
+array or other wrappers like `{ "playlists": [...] }` are accepted too):
+
+```json
+{
+  "data": [
+    {
+      "id": "songs",
+      "playlistId": "PLIV4nZCjWE3E",
+      "name": "Personal Songs",
+      "description": "Your personal collection, beautifully organized."
+    }
+  ]
+}
+```
+
+The **`playlistId`** (the real YouTube playlist id) is used for syncing; the
+endpoint URL can be swapped via `VITE_PLAYLISTS_API_URL`.
+
+- Every entry becomes its own playlist — the sidebar shows a **Your Playlists**
+  section and each entry gets a `/playlist/:id` page. Paste any YouTube
+  playlist id (from `?list=...`) plus a name.
+- Songs across **all** fetched playlists are aggregated into the library
   (home, search, favorites, artists, albums). A video shared by two playlists
   appears once in the library but in both playlists.
 - The first entry is the app's main playlist (route `/playlist`).
+- The playlist list is re-fetched periodically (every 10 minutes), so
+  playlists added to the API later — and all of their songs — show up
+  automatically without a reload. Songs added to an already-known playlist
+  are picked up by the same periodic check.
+- The fetched list is cached in LocalStorage so the app stays instant and
+  works offline. When no API key is configured (or the API is unreachable),
+  PULSE falls back to the built-in defaults in `src/services/playlistService.js`.
 
 ### How the live sync works (no API key, no scraping, official surfaces only)
 
@@ -136,21 +155,6 @@ export const YOUTUBE_PLAYLISTS = [
 3. The catalog is cached in LocalStorage (`music-player-catalog-v3`) so the
    app is instant and works offline, and a manual **Sync now** button forces a
    re-check any time.
-
-If you set `VITE_YOUTUBE_API_KEY`, sync switches to the YouTube Data API v3
-(paginated `playlistItems` + exact durations from `videos`).
-
-## Automatic mood matching
-
-The five mood-mix playlists ("Late Night Drives", "Soul & Silence", "Rising
-Indie", "Haryanvi Heat", "Sad Hours") are **fully automatic** — there is no
-manual track list anywhere. Every time the catalog changes (new songs synced,
-new playlists added), `src/services/moodClassifier.js` scores each song
-against the moods using keyword + artist rules and drops it into every mood it
-fits. A song can be in several moods, and songs that match nothing simply stay
-out. Tune matching by editing the keyword weights and the per-mood threshold
-in that file; the **Settings → Mood playlists → Re-analyze moods** button
-re-runs it over the whole library.
 
 ## Keyboard shortcuts
 

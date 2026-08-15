@@ -4,25 +4,9 @@
  * No API key required: the playlist's contents (video ids, titles, channels,
  * durations) are read through YouTube's official IFrame Player API — the same
  * embed every site uses. Nothing is scraped and nothing is downloaded.
- *
- * If VITE_YOUTUBE_API_KEY is set, the heavier REST path (playlistItems +
- * videos) takes over instead.
  */
 
 import { engine } from "./audioEngine";
-import { YOUTUBE_PLAYLISTS } from "../config/youtubePlaylists";
-
-const API_BASE = "https://www.googleapis.com/youtube/v3";
-
-/** The configured YouTube playlists (id + name) — see src/config/youtubePlaylists.js. */
-export { YOUTUBE_PLAYLISTS };
-
-/** The first configured playlist is the app's main one (shown at /playlist). */
-export const REFERENCE_PLAYLIST_ID = YOUTUBE_PLAYLISTS[0]?.id || "";
-
-const apiKey = () => import.meta.env.VITE_YOUTUBE_API_KEY || "";
-
-export const isLiveApiConfigured = () => Boolean(apiKey());
 
 const STATE_CUED = 5;
 const STATE_UNSTARTED = -1;
@@ -173,7 +157,7 @@ function readCurrent(player) {
  * Fetch the CURRENT video ids of a playlist (cheap — used for the periodic
  * auto re-check and to seed the full metadata pass).
  */
-export async function fetchPlaylistVideoIdsFromPlayer(playlistId = REFERENCE_PLAYLIST_ID) {
+export async function fetchPlaylistVideoIdsFromPlayer(playlistId) {
   const player = await getSyncPlayer();
   try {
     player.cuePlaylist({ list: playlistId, listType: "playlist" });
@@ -220,7 +204,7 @@ async function backfillAuthors(entries) {
  * playback, so syncing is silent. Returns raw entries; the caller stamps the
  * playlist membership (see PlayerContext).
  */
-export async function fetchPlaylistWithMetadata(playlistId = REFERENCE_PLAYLIST_ID) {
+export async function fetchPlaylistWithMetadata(playlistId) {
   const { ids, player } = await fetchPlaylistVideoIdsFromPlayer(playlistId);
   const entries = [];
 
@@ -270,96 +254,9 @@ export async function fetchPlaylistWithMetadata(playlistId = REFERENCE_PLAYLIST_
  * Entry point used by the player context. Returns normalized catalog entries
  * (never merges — the caller replaces the catalog so removals propagate).
  */
-export async function syncPlaylistFromYouTube(playlistId = REFERENCE_PLAYLIST_ID) {
-  if (isLiveApiConfigured()) {
-    const fetched = await fetchPlaylist(playlistId);
-    return { entries: fetched };
-  }
+export async function syncPlaylistFromYouTube(playlistId) {
   const entries = await fetchPlaylistWithMetadata(playlistId);
   return { entries };
-}
-
-/* ------------------------------------------------------------------ */
-/*  YouTube Data API v3 path (only when VITE_YOUTUBE_API_KEY is set)    */
-/* ------------------------------------------------------------------ */
-
-export async function fetchPlaylist(playlistId = REFERENCE_PLAYLIST_ID) {
-  let nextPageToken = "";
-  const items = [];
-  do {
-    const params = new URLSearchParams({
-      part: "snippet,contentDetails",
-      playlistId,
-      maxResults: "50",
-      key: apiKey(),
-      ...(nextPageToken ? { pageToken: nextPageToken } : {}),
-    });
-    const res = await fetch(`${API_BASE}/playlistItems?${params}`);
-    if (!res.ok) throw new Error(`YouTube API ${res.status}`);
-    const json = await res.json();
-    items.push(...(json.items || []));
-    nextPageToken = json.nextPageToken || "";
-  } while (nextPageToken);
-
-  const videoIds = [];
-  for (const item of items) {
-    const videoId = item.snippet?.resourceId?.videoId;
-    if (videoId) videoIds.push(videoId);
-  }
-  const details = await fetchVideoDetails(videoIds);
-
-  const result = [];
-  for (const item of items) {
-    const snippet = item.snippet || {};
-    const videoId = snippet.resourceId?.videoId;
-    if (!videoId) continue;
-    result.push({
-      youtubeId: videoId,
-      title: cleanTitle(snippet.title || "Untitled"),
-      artist: snippet.videoOwnerChannelTitle || "Unknown Artist",
-      album: "Personal Songs",
-      duration: details.get(videoId) || 0,
-      thumbnail: snippet.thumbnails?.high?.url || "",
-    });
-  }
-  return result;
-}
-
-export async function fetchVideoDetails(videoIds) {
-  const map = new Map();
-  const chunkSize = 50;
-  const chunks = [];
-  for (let i = 0; i < videoIds.length; i += chunkSize) {
-    chunks.push(videoIds.slice(i, i + chunkSize));
-  }
-  // Each chunk is an independent API request that only writes to its own
-  // response, so fetch them all in parallel instead of waiting one at a time.
-  const results = await Promise.all(
-    chunks.map(async (chunk) => {
-      const params = new URLSearchParams({
-        part: "contentDetails",
-        id: chunk.join(","),
-        key: apiKey(),
-      });
-      const res = await fetch(`${API_BASE}/videos?${params}`);
-      if (!res.ok) return null;
-      return res.json();
-    })
-  );
-  results.forEach((json) => {
-    if (!json) return;
-    (json.items || []).forEach((v) => {
-      const seconds = parseIsoDuration(v.contentDetails?.duration);
-      map.set(v.id, seconds);
-    });
-  });
-  return map;
-}
-
-function parseIsoDuration(iso = "") {
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!m) return 0;
-  return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
 }
 
 function cleanTitle(title = "") {

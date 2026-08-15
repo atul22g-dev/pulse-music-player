@@ -18,19 +18,19 @@ import {
   getAlbums,
   getCatalogSnapshot,
   updateTrackDuration,
-  classifyMissingMoods,
-  reclassifyAllMoods,
 } from "../data/tracks";
 import {
   syncPlaylistFromYouTube,
   fetchPlaylistVideoIdsFromPlayer,
-  YOUTUBE_PLAYLISTS,
 } from "../services/youtubeService";
+import {
+  getPlaylists,
+  subscribePlaylists,
+  refreshPlaylistsFromApi,
+} from "../services/playlistService";
 import { uid, shuffleArray } from "../utils/misc";
 import { useToast } from "./ToastContext";
 
-// v3: track shape now carries playlistIds (multi-playlist support).
-const CATALOG_CACHE_KEY = "music-player-catalog-v3";
 const RESYNC_INTERVAL_MS = 10 * 60 * 1000; // re-check the playlists every 10 minutes
 
 const PlayerContext = createContext(null);
@@ -287,7 +287,7 @@ function usePlayerCore(toast, stateRef, settings, bumpCatalogVersion) {
           // Persist the real duration back into the catalog (matters when the
           // catalog was synced without durations, e.g. via the oEmbed path).
           if (updateTrackDuration(s.currentTrack?.id, realDuration)) {
-            save(CATALOG_CACHE_KEY, getCatalogSnapshot());
+            save(STORAGE_KEYS.catalog, getCatalogSnapshot());
             bumpCatalogVersion();
           }
         }
@@ -501,14 +501,23 @@ function useLibrary(toast, stateRef) {
 /* ---------------- catalog sync ---------------- */
 
 function useCatalogSync(toast) {
+  // The list of YouTube playlists to track, fetched from the API at boot
+  // (services/playlistService.js) — cached locally with a default fallback.
+  const [youtubePlaylists, setYoutubePlaylists] = useState(getPlaylists);
+
+  useEffect(
+    () => subscribePlaylists(() => setYoutubePlaylists(getPlaylists())),
+    []
+  );
+
   // Catalog: starts from the localStorage cache (so the app is instant and
   // offline-capable) and is refreshed from the live YouTube playlists below.
   const [catalogVersion, setCatalogVersion] = useState(() => {
-    const cached = load(CATALOG_CACHE_KEY, null);
+    const cached = load(STORAGE_KEYS.catalog, null);
     if (Array.isArray(cached) && cached.length) {
-      restoreCatalog(cached); // also runs the mood classification pass
+      restoreCatalog(cached);
       // Persist the freshly-classified snapshot so the cache self-heals.
-      save(CATALOG_CACHE_KEY, getCatalogSnapshot());
+      save(STORAGE_KEYS.catalog, getCatalogSnapshot());
     }
     return 0;
   });
@@ -517,9 +526,7 @@ function useCatalogSync(toast) {
 
   const applyPlaylist = useCallback((playlistId, entries) => {
     const { added, removed } = setPlaylistEntries(playlistId, entries);
-    // New songs get matched into the mood playlists automatically.
-    classifyMissingMoods();
-    save(CATALOG_CACHE_KEY, getCatalogSnapshot());
+    save(STORAGE_KEYS.catalog, getCatalogSnapshot());
     setCatalogVersion((v) => v + 1);
     return { added, removed };
   }, []);
@@ -548,10 +555,12 @@ function useCatalogSync(toast) {
       // running them concurrently would corrupt both. The promise chain makes
       // that ordering explicit.
       let chain = Promise.resolve();
-      for (const pl of YOUTUBE_PLAYLISTS) {
+      for (const pl of youtubePlaylists) {
         chain = chain.then(async () => {
           const { entries } = await syncPlaylistFromYouTube(pl.id);
-          const stamped = entries.map((e) => ({ ...e, playlistId: pl.id, playlistName: pl.name }));
+          // Each API playlist doubles as an album: stamp its name as the
+          // track's album so the library's album view mirrors the API.
+          const stamped = entries.map((e) => ({ ...e, playlistId: pl.id, playlistName: pl.name, album: pl.name }));
           const res = applyPlaylist(pl.id, stamped);
           added += res.added;
           removed += res.removed;
@@ -567,7 +576,7 @@ function useCatalogSync(toast) {
     } finally {
       syncingRef.current = false;
     }
-  }, [applyPlaylist, announceSync]);
+  }, [applyPlaylist, announceSync, youtubePlaylists]);
 
   // Boot sync + periodic re-check: songs added to any configured YouTube
   // playlist later show up automatically (a cheap id comparison per playlist,
@@ -581,7 +590,7 @@ function useCatalogSync(toast) {
         // checked in turn via an explicit sequential chain.
         let needsSync = false;
         let chain = Promise.resolve();
-        for (const pl of YOUTUBE_PLAYLISTS) {
+        for (const pl of youtubePlaylists) {
           chain = chain.then(async () => {
             const { ids } = await fetchPlaylistVideoIdsFromPlayer(pl.id);
             const current = [];
@@ -611,35 +620,38 @@ function useCatalogSync(toast) {
     const boot = async () => {
       if (ranOnce) return;
       ranOnce = true;
+      // Pull the playlist list from the API first (falls back to the cached
+      // or default list), so the first sync below uses it.
+      await refreshPlaylistsFromApi();
+      if (!active) return;
       // First light check pulls each playlist's id list; if the catalog is
       // empty or any playlist changed, a full metadata sync follows.
       await lightCheck();
     };
     boot();
-    const interval = setInterval(lightCheck, RESYNC_INTERVAL_MS);
+    const interval = setInterval(() => {
+      lightCheck();
+      // Re-pull the playlist list from the API too, so playlists added there
+      // later (with their songs) show up automatically without a reload.
+      refreshPlaylistsFromApi();
+    }, RESYNC_INTERVAL_MS);
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [syncNow]);
+  }, [syncNow, youtubePlaylists]);
 
   const bumpCatalogVersion = useCallback(() => {
     setCatalogVersion((v) => v + 1);
   }, []);
 
-  const reanalyzeMoods = useCallback(() => {
-    const changed = reclassifyAllMoods();
-    save(CATALOG_CACHE_KEY, getCatalogSnapshot());
-    bumpCatalogVersion();
-    toast.push(
-      changed > 0
-        ? `Mood playlists re-analyzed — ${changed} ${changed === 1 ? "song" : "songs"} matched`
-        : "Mood playlists are up to date",
-      changed > 0 ? "success" : "info"
-    );
-  }, [toast, bumpCatalogVersion]);
-
-  return { catalogVersion, syncState, syncNow, reanalyzeMoods, bumpCatalogVersion };
+  return {
+    catalogVersion,
+    syncState,
+    syncNow,
+    bumpCatalogVersion,
+    youtubePlaylists,
+  };
 }
 
 /* ---------------- provider composition ---------------- */
@@ -737,7 +749,7 @@ export function PlayerProvider({ children }) {
       albums: getAlbums(),
       syncState: catalog.syncState,
       syncNow: catalog.syncNow,
-      reanalyzeMoods: catalog.reanalyzeMoods,
+      youtubePlaylists: catalog.youtubePlaylists,
       playTrack: core.playTrack,
       togglePlay: core.togglePlay,
       nextTrack: core.nextTrack,
@@ -763,7 +775,8 @@ export function PlayerProvider({ children }) {
     [
       currentTrack, isPlaying, position, duration, provider, volume, shuffle, repeat, queue, queueIndex,
       library.favorites, recent, library.settings, library.savedPlaylists, queueOpen, loadingTrack,
-      catalog.catalogVersion, catalog.syncState, catalog.syncNow, catalog.reanalyzeMoods,
+      catalog.catalogVersion, catalog.syncState, catalog.syncNow,
+      catalog.youtubePlaylists,
       core.playTrack, core.togglePlay, core.nextTrack, core.previousTrack, core.seekTo, core.setVolume,
       core.toggleShuffle, core.cycleRepeat, core.addToQueue, core.removeFromQueue, core.reorderQueue,
       core.clearQueue, saveQueueAsPlaylist, core.setQueueOpen, library.toggleFavorite, library.clearFavorites,

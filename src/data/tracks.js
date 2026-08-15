@@ -11,7 +11,7 @@
  * the catalog is refreshed.
  */
 
-import { matchMoodIds } from "../services/moodClassifier";
+import { getPlaylists } from "../services/playlistService";
 
 export let tracks = [];
 
@@ -38,36 +38,7 @@ function normalize(raw, id) {
       : raw.playlistId
         ? [raw.playlistId]
         : ["library"],
-    // Mood playlist membership, assigned automatically by moodClassifier.
-    // null means "not classified yet" — classified on restore/sync.
-    moodPlaylistIds: Array.isArray(raw.moodPlaylistIds) ? [...raw.moodPlaylistIds] : null,
   };
-}
-
-/** Assign mood playlists to every track that hasn't been classified yet. */
-export function classifyMissingMoods() {
-  let classified = 0;
-  for (const t of tracks) {
-    if (!t.moodPlaylistIds) {
-      t.moodPlaylistIds = matchMoodIds(t);
-      classified += 1;
-    }
-  }
-  return classified;
-}
-
-/** Re-run the mood classifier over the whole catalog (rule tuning or manual). */
-export function reclassifyAllMoods() {
-  let changed = 0;
-  for (const t of tracks) {
-    const ids = matchMoodIds(t);
-    const prev = t.moodPlaylistIds || [];
-    if (ids.length !== prev.length || ids.some((id, i) => id !== prev[i])) {
-      t.moodPlaylistIds = ids;
-      changed += 1;
-    }
-  }
-  return changed;
 }
 
 /** Restore the cached catalog snapshot at boot (before any live sync). */
@@ -79,7 +50,6 @@ export function restoreCatalog(entries = []) {
     normalized.push(normalize({ ...t, playlistIds: t.playlistIds || ["library"] }, t.id));
   }
   tracks = normalized;
-  classifyMissingMoods();
 }
 
 /**
@@ -132,14 +102,12 @@ export function setPlaylistEntries(playlistId, entries = []) {
     const existing = index.get(raw.id);
     if (existing) {
       // Already in the catalog (possibly via another playlist) — refresh its
-      // metadata and merge playlist membership (keep existing mood matches;
-      // new tracks are classified after the merge).
+      // metadata and merge playlist membership.
       const idx = next.indexOf(existing);
       if (idx >= 0) {
         const merged = {
           ...raw,
           playlistIds: [...new Set([...(raw.playlistIds || []), ...(existing.playlistIds || [])])],
-          moodPlaylistIds: existing.moodPlaylistIds || raw.moodPlaylistIds || null,
         };
         next[idx] = merged;
         index.set(merged.id, merged);
@@ -187,21 +155,31 @@ export function getArtists() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Albums derived from the live catalog. */
+/**
+ * Albums derived from the live catalog. Tracks are stamped with their
+ * playlist's name as the album at sync time (see PlayerContext), so each API
+ * playlist becomes its own album; artwork falls back to the playlist's image
+ * from the API when available.
+ */
 export function getAlbums() {
+  const configs = new Map(getPlaylists().map((c) => [c.name, c]));
   const map = new Map();
   for (const t of tracks) {
     if (!map.has(t.album)) map.set(t.album, []);
     map.get(t.album).push(t);
   }
   return [...map.entries()]
-    .map(([name, list]) => ({
-      name,
-      artist: list[0].artist,
-      tracks: list,
-      thumbnail: list[0].thumbnail,
-      gradient: list[0].gradient,
-    }))
+    .map(([name, list]) => {
+      const cfg = configs.get(name);
+      return {
+        name,
+        artist: list[0].artist,
+        tracks: list,
+        thumbnail: cfg?.artwork || list[0].thumbnail,
+        gradient: list[0].gradient,
+        artwork: cfg?.artwork || "",
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

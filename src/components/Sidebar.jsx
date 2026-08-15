@@ -6,7 +6,7 @@ import {
 import { usePlayer } from "../context/PlayerContext";
 import Artwork from "./Artwork";
 import FavoriteButton from "./FavoriteButton";
-import { playlists, youtubePlaylists } from "../data/playlists";
+import { getAlbumPlaylists } from "../data/playlists";
 import { getPlaylistTracks } from "../utils/library";
 
 const NAV = [
@@ -23,6 +23,24 @@ const NAV = [
 export default function Sidebar({ open, onClose }) {
   const { currentTrack, isPlaying, togglePlay } = usePlayer();
   const navigate = useNavigate();
+  const albumPlaylists = getAlbumPlaylists();
+
+  const playlistLink = (p, keyPrefix = "") => {
+    const tracks = getPlaylistTracks(p);
+    const artSrc = p.artwork || tracks[0]?.thumbnail;
+    return (
+      <Link key={`${keyPrefix}${p.id}`} to={`/playlist/${p.id}`} onClick={onClose} className="nav-link !py-2">
+        <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md">
+          {artSrc ? (
+            <Artwork src={artSrc} alt="" gradient={tracks[0]?.gradient} className="h-full w-full rounded-none" />
+          ) : (
+            <ListMusic size={14} className="absolute inset-0 m-auto text-faint" />
+          )}
+        </span>
+        <span className="truncate">{p.name}</span>
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -71,47 +89,14 @@ export default function Sidebar({ open, onClose }) {
             </NavLink>
           ))}
 
-          {youtubePlaylists.length > 1 && (
+          {albumPlaylists.length > 0 && (
             <>
               <p className="mt-6 px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-faint">
-                Your Playlists
+                Albums
               </p>
-              {youtubePlaylists.map((p) => {
-                const tracks = getPlaylistTracks(p);
-                return (
-                  <Link key={p.id} to={`/playlist/${p.id}`} onClick={onClose} className="nav-link !py-2">
-                    <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md">
-                      {tracks[0] ? (
-                        <Artwork src={tracks[0].thumbnail} alt="" gradient={tracks[0].gradient} className="h-full w-full rounded-none" />
-                      ) : (
-                        <ListMusic size={14} className="absolute inset-0 m-auto text-faint" />
-                      )}
-                    </span>
-                    <span className="truncate">{p.name}</span>
-                  </Link>
-                );
-              })}
+              {albumPlaylists.map((p) => playlistLink(p, "album-"))}
             </>
           )}
-
-          <p className="mt-6 px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-faint">
-            Mood Playlists
-          </p>
-          {playlists.map((p) => {
-            const tracks = getPlaylistTracks(p);
-            return (
-              <Link key={p.id} to={`/playlist/${p.id}`} onClick={onClose} className="nav-link !py-2">
-                <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md">
-                  {tracks[0] ? (
-                    <Artwork src={tracks[0].thumbnail} alt="" gradient={tracks[0].gradient} className="h-full w-full rounded-none" />
-                  ) : (
-                    <ListMusic size={14} className="absolute inset-0 m-auto text-faint" />
-                  )}
-                </span>
-                <span className="truncate">{p.name}</span>
-              </Link>
-            );
-          })}
         </nav>
 
         {/* now playing mini */}

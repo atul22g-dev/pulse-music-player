@@ -7,7 +7,7 @@ import EmptyState from "../components/EmptyState";
 import { AlbumCard, ArtistCard, PlaylistCard, TrackCard } from "../components/CollectionCards";
 import SectionHeader from "../components/SectionHeader";
 import { usePlayer } from "../context/PlayerContext";
-import { playlists } from "../data/playlists";
+import { getYoutubePlaylists } from "../data/playlists";
 import { getPlaylistTracks } from "../utils/library";
 
 function normalize(s) {
@@ -19,6 +19,7 @@ export default function SearchPage() {
   const initial = params.get("q") || "";
   const [query, setQuery] = useState(initial);
   const { recent, playTrack, catalog, artists, albums } = usePlayer();
+  const youtubePlaylists = getYoutubePlaylists();
 
   const q = query.trim().toLowerCase();
   const recentTracks = recent.slice(0, 6).map((r) => catalog.find((t) => t.id === r.id)).filter(Boolean);
@@ -30,9 +31,9 @@ export default function SearchPage() {
       songs: catalog.filter((t) => match(t.title) || match(t.artist) || match(t.album)),
       artists: artists.filter((a) => match(a.name) || a.tracks.some((t) => match(t.title))),
       albums: albums.filter((a) => match(a.name) || match(a.artist)),
-      playlists: playlists.filter((p) => match(p.name) || match(p.description)),
+      playlists: youtubePlaylists.filter((p) => match(p.name) || match(p.description)),
     };
-  }, [q, catalog, artists, albums]);
+  }, [q, catalog, artists, albums, youtubePlaylists]);
 
   const total = results ? results.songs.length + results.artists.length + results.albums.length + results.playlists.length : 0;
 
@@ -63,21 +64,13 @@ export default function SearchPage() {
               className="mt-5"
             />
           )}
-          <div className="mt-10">
-            <SectionHeader title="Mood playlists" />
-            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {playlists.map((p) => (
-                <PlaylistCard key={p.id} playlist={p} tracks={getPlaylistTracks(p)} />
-              ))}
-            </div>
-          </div>
         </div>
       ) : total === 0 ? (
         <div className="mt-10">
           <EmptyState
             icon={Search}
             title={`No results for “${query}”`}
-            message="Check the spelling, or try searching for a different song, artist, album or mood."
+            message="Check the spelling, or try searching for a different song, artist or album."
             action={{ onClick: () => setQuery(""), label: "Clear search" }}
           />
         </div>

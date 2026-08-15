@@ -1,16 +1,15 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Play, Shuffle, Search, RefreshCw, ArrowDownWideNarrow, Clock, ListMusic, Sparkles } from "lucide-react";
+import { Play, Shuffle, Search, RefreshCw, ArrowDownWideNarrow, Clock, ListMusic } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import SongList from "../components/SongList";
 import EmptyState from "../components/EmptyState";
 import Artwork from "../components/Artwork";
 import { SkeletonSongRow } from "../components/Skeleton";
-import { mainPlaylist, playlists, getPlaylist } from "../data/playlists";
+import { getPlaylist, getMainPlaylist } from "../data/playlists";
 import { getPlaylistTracks, getPlaylistDuration } from "../utils/library";
 import { formatListDuration, pluralize } from "../utils/format";
 import { shuffleArray } from "../utils/misc";
-import { isLiveApiConfigured, REFERENCE_PLAYLIST_ID } from "../services/youtubeService";
 
 const SORTS = [
   { id: "default", label: "Original order" },
@@ -23,8 +22,9 @@ export default function PlaylistPage() {
   const { id } = useParams();
   const { playTrack, savedPlaylists, catalog, syncState, syncNow } = usePlayer();
 
-  const playlist = id ? getPlaylist(id) || savedPlaylists.find((p) => p.id === id) || null : mainPlaylist;
-  const isMain = !id || id === mainPlaylist.id;
+  const main = getMainPlaylist();
+  const playlist = id ? getPlaylist(id) || savedPlaylists.find((p) => p.id === id) || null : main;
+  const isMain = !id || id === main.id;
   const isYouTubePlaylist = Boolean(playlist?.isYouTube);
 
   const [query, setQuery] = useState("");
@@ -105,14 +105,6 @@ export default function PlaylistPage() {
             <span>{pluralize(baseTracks.length, "song")}</span>
             <span className="text-faint">·</span>
             <span>{formatListDuration(totalDuration)}</span>
-            {playlist.mood && (
-              <>
-                <span className="text-faint">·</span>
-                <span className="inline-flex items-center gap-1 text-accent">
-                  <Sparkles size={12} /> Auto-matched to this mood
-                </span>
-              </>
-            )}
             {isYouTubePlaylist && (
               <>
                 <span className="text-faint">·</span>
@@ -122,9 +114,7 @@ export default function PlaylistPage() {
                     ? "Syncing with YouTube…"
                     : syncState === "offline"
                       ? "YouTube unreachable — showing local copy"
-                      : isLiveApiConfigured()
-                        ? `Live · ${catalog.length} tracks synced`
-                        : `Live YouTube playlist · ${catalog.length} tracks`}
+                      : `Live YouTube playlist · ${catalog.length} tracks`}
                 </span>
                 <button
                   type="button"
@@ -243,8 +233,14 @@ export default function PlaylistPage() {
       )}
 
       <p className="mt-10 text-center text-[11px] text-faint">
-        Source: <span className="font-mono">youtube.com/playlist?list={isYouTubePlaylist ? playlist.id : "PL…"}</span> ·
-        playback streams the official YouTube embed for each track
+        {playlist.isAlbum ? (
+          <>Derived from your library — tracks grouped by album</>
+        ) : (
+          <>
+            Source: <span className="font-mono">youtube.com/playlist?list={isYouTubePlaylist ? playlist.id : "PL…"}</span> ·
+            playback streams the official YouTube embed for each track
+          </>
+        )}
       </p>
     </div>
   );

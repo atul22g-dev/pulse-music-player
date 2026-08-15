@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Play, Clock } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
+import { albumPlaylistId } from "../data/playlists";
 import Artwork from "./Artwork";
 import { pluralize, formatTime } from "../utils/format";
 
@@ -27,13 +28,13 @@ export function AlbumCard({ album }) {
 
   return (
     <Link
-      to={`/albums/${encodeURIComponent(album.name)}`}
+      to={`/playlist/${albumPlaylistId(album.name)}`}
       className="group block rounded-2xl p-3 transition-[background-color,box-shadow] duration-300 hover:bg-white/[0.05] hover:shadow-glow"
       aria-label={`Open album ${album.name} by ${album.artist}`}
     >
       <div className="relative mb-3">
         <Artwork
-          src={album.thumbnail}
+          src={album.artwork || album.thumbnail}
           alt={`${album.name} artwork`}
           gradient={album.gradient}
           className="aspect-square w-full rounded-2xl transition-transform duration-300 group-hover:scale-[1.03]"

@@ -7,6 +7,12 @@ export const STORAGE_KEYS = {
   recent: `${PREFIX}-recent`,
   queue: `${PREFIX}-queue`,
   settings: `${PREFIX}-settings`,
+  // v3: track shape carries playlistIds (multi-playlist support).
+  catalog: `${PREFIX}-catalog-v3`,
+  // Playlist config fetched from the API (see services/playlistService.js).
+  playlists: `${PREFIX}-playlists`,
+  // API key for the playlist endpoint (saved from Settings → Playlist API).
+  apiKey: `${PREFIX}-api-key`,
 };
 
 export function load(key, fallback = null) {

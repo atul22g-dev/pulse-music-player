@@ -4,16 +4,6 @@ export function SkeletonBlock({ className = "" }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
-function SkeletonCard() {
-  return (
-    <div className="space-y-3">
-      <SkeletonBlock className="aspect-square w-full rounded-2xl" />
-      <SkeletonBlock className="h-4 w-3/4 rounded-md" />
-      <SkeletonBlock className="h-3 w-1/2 rounded-md" />
-    </div>
-  );
-}
-
 export function SkeletonSongRow() {
   return (
     <div className="flex items-center gap-3 py-2.5">
@@ -24,16 +14,6 @@ export function SkeletonSongRow() {
         <SkeletonBlock className="h-3 w-1/4 rounded-md" />
       </div>
       <SkeletonBlock className="hidden h-3.5 w-10 rounded-md sm:block" />
-    </div>
-  );
-}
-
-export function SkeletonGrid({ count = 5, Card = SkeletonCard }) {
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-      {Array.from({ length: count }).map((_, i) => (
-        <Card key={i} />
-      ))}
     </div>
   );
 }

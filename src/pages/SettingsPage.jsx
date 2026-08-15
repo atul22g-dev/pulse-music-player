@@ -1,9 +1,11 @@
-import { Palette, SlidersHorizontal, Database, Info, Check, Moon, Sun, MonitorSmartphone, RefreshCw, Trash2, Heart, History, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Palette, SlidersHorizontal, Database, Info, Check, Moon, Sun, MonitorSmartphone, RefreshCw, Trash2, Heart, History } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
-import { ACCENTS, THEMES } from "../config/playerSettings";
 import Toggle from "../components/Toggle";
-import { isLiveApiConfigured, YOUTUBE_PLAYLISTS } from "../services/youtubeService";
 import { STORAGE_KEYS } from "../services/storage";
+
+const ACCENTS = ["purple", "blue", "pink", "green", "orange"];
+const THEMES = ["dark", "oled", "light"];
 
 const THEME_META = {
   dark: { label: "Dark", desc: "Premium default", icon: Moon },
@@ -37,7 +39,7 @@ export default function SettingsPage() {
   const {
     settings, updateSettings, setVolume, volume,
     clearRecentlyPlayed, clearFavorites, resetApp, recent, favorites,
-    reanalyzeMoods, catalog,
+    youtubePlaylists,
   } = usePlayer();
 
   return (
@@ -187,29 +189,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* mood playlists */}
-      <Card title="Mood playlists" icon={Sparkles}>
-        <p className="text-[12.5px] leading-relaxed text-dim">
-          Every song is matched into the mood playlists automatically by keyword
-          and artist rules — so when you add new songs to your YouTube playlists,
-          they land in the fitting moods on their own. Currently{' '}
-          <span className="font-semibold text-ink">{catalog.length}</span> songs
-          are classified.
-        </p>
-        <button
-          type="button"
-          onClick={reanalyzeMoods}
-          disabled={catalog.length === 0}
-          className="btn-ghost mt-4 disabled:pointer-events-none disabled:opacity-40"
-        >
-          <Sparkles size={15} /> Re-analyze moods
-        </button>
-        <p className="mt-3 text-[11px] leading-relaxed text-faint">
-          Tune the matching rules in{' '}
-          <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10.5px] text-ink">src/services/moodClassifier.js</span>.
-        </p>
-      </Card>
-
       {/* about */}
       <Card title="About & shortcuts" icon={Info}>
         <div className="space-y-4">
@@ -218,14 +197,10 @@ export default function SettingsPage() {
               <RefreshCw size={14} className="text-accent" />
               <span className="font-semibold text-ink">YouTube playlist sync</span>
               <span>·</span>
-              {isLiveApiConfigured() ? (
-                <span className="text-emerald-400">Live API connected</span>
-              ) : (
-                <span>Syncing live, no API key needed</span>
-              )}
+              <span>Syncing live, no API key needed</span>
             </div>
             <ul className="flex flex-wrap gap-1.5">
-              {YOUTUBE_PLAYLISTS.map((p) => (
+              {youtubePlaylists.map((p) => (
                 <li key={p.id} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1">
                   <span className="text-[12px] font-semibold text-ink">{p.name}</span>
                   <span className="font-mono text-[10.5px] text-faint">{p.id}</span>
@@ -233,11 +208,12 @@ export default function SettingsPage() {
               ))}
             </ul>
             <p className="text-[11.5px] leading-relaxed text-faint">
-              Managed in <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-ink">src/config/youtubePlaylists.js</span> —
-              add a playlist id + name there and it becomes its own playlist in the app. Playback is read and
-              streamed through YouTube's official player. Set
-              <span className="mx-1 rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-ink">VITE_YOUTUBE_API_KEY</span>
-              to switch sync to the REST API instead.
+              The playlist list is fetched from the{' '}
+              <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10.5px] text-ink">apis-atual-dev.vercel.app/api/playlists</span>{' '}
+              API (authenticated with{' '}
+              <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10.5px] text-ink">VITE_ATUAL_API_KEY</span>)
+              — each entry becomes its own playlist in the app. Playback is read and
+              streamed through YouTube's official player — no YouTube API key required.
             </p>
           </div>
 

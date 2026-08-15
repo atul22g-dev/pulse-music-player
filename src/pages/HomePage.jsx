@@ -5,12 +5,9 @@ import { useFirstVisitLoading } from "../hooks/useUi";
 import HeroPlayer from "../components/HeroPlayer";
 import SectionHeader from "../components/SectionHeader";
 import { TrackCard } from "../components/CollectionCards";
-import { PlaylistCard } from "../components/CollectionCards";
 import SongList from "../components/SongList";
 import EmptyState from "../components/EmptyState";
-import { SkeletonGrid, SkeletonBlock } from "../components/Skeleton";
-import { playlists } from "../data/playlists";
-import { getPlaylistTracks } from "../utils/library";
+import { SkeletonBlock } from "../components/Skeleton";
 
 export default function HomePage() {
   const { recent, favorites, catalog, syncState, syncNow } = usePlayer();
@@ -74,20 +71,6 @@ export default function HomePage() {
             <Link to="/playlist" className="mt-3 inline-flex text-[13px] font-semibold text-accent hover:underline">
               Browse your playlist →
             </Link>
-          </div>
-        )}
-      </section>
-
-      {/* mood playlists */}
-      <section aria-label="Made for you">
-        <SectionHeader title="Made for you" subtitle="Mood-matched mixes from your collection" to="/discover" />
-        {!ready ? (
-          <SkeletonGrid count={4} />
-        ) : (
-          <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {playlists.map((p) => (
-              <PlaylistCard key={p.id} playlist={p} tracks={getPlaylistTracks(p)} />
-            ))}
           </div>
         )}
       </section>
