@@ -10,7 +10,7 @@ import EmptyState from "../components/EmptyState";
 import { SkeletonBlock } from "../components/Skeleton";
 
 export default function HomePage() {
-  const { recent, favorites, catalog, syncState, syncNow } = usePlayer();
+  const { recent, favorites, catalog } = usePlayer();
   const ready = useFirstVisitLoading("home", 550);
 
   const catalogById = new Map(catalog.map((t) => [t.id, t]));
@@ -45,14 +45,11 @@ export default function HomePage() {
           </div>
           <HeroPlayer />
         </>
-      ) : syncState === "syncing" ? (
-        <SkeletonBlock className="h-[420px] w-full rounded-3xl" />
       ) : (
         <EmptyState
           icon={ListMusic}
-          title="Your playlist is empty"
-          message="PULSE pulls your songs straight from your YouTube playlist — connect to sync them in."
-          action={{ onClick: () => syncNow(), label: "Sync from YouTube", icon: ListMusic }}
+          title="Your library is empty"
+          message="Your music will appear here once your library has tracks."
         />
       )}
 
@@ -104,7 +101,7 @@ export default function HomePage() {
 
       <p className="flex items-center justify-center gap-2 pb-4 text-[11.5px] text-faint">
         <ListMusic size={13} />
-        Built with PULSE · {catalog.length} tracks synced from your YouTube playlists
+        Built with Pulse · {catalog.length} {catalog.length === 1 ? "track" : "tracks"} in your library
       </p>
     </div>
   );

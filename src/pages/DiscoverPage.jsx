@@ -10,7 +10,7 @@ import { shuffleArray } from "../utils/misc";
 import { pluralize } from "../utils/format";
 
 export default function DiscoverPage() {
-  const { recent, favorites, catalog, artists, albums, syncState, syncNow } = usePlayer();
+  const { recent, favorites, catalog, artists, albums } = usePlayer();
   const ready = useFirstVisitLoading("discover", 500);
 
   const catalogById = new Map(catalog.map((t) => [t.id, t]));
@@ -174,7 +174,7 @@ export default function DiscoverPage() {
           <EmptyState
             icon={Library}
             title="No albums yet"
-            message="Each synced playlist becomes an album — they'll line up here once you have tracks."
+            message="Each playlist becomes an album — they'll line up here once you have tracks."
             action={{ to: "/albums", label: "Browse albums" }}
             className="mt-5 !py-10"
           />
@@ -191,12 +191,11 @@ export default function DiscoverPage() {
         )}
       </section>
 
-      {!catalog.length && syncState !== "syncing" && (
+      {!catalog.length && (
         <EmptyState
           icon={Compass}
-          title="Nothing synced yet"
-          message="Your library is built from your YouTube playlist. Sync it once and every shelf lights up."
-          action={{ onClick: () => syncNow(), label: "Sync from YouTube", icon: Compass }}
+          title="Nothing here yet"
+          message="Your library is built from your playlists — once you have tracks, every shelf lights up."
         />
       )}
       <p className="flex items-center justify-center gap-2 pb-4 text-[11.5px] text-faint">

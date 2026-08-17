@@ -68,7 +68,7 @@ export default {
           from: { transform: "translateY(100%)" },
           to: { transform: "translateY(0)" },
         },
-        "pulse-glow": {
+        "Pulse-glow": {
           "0%, 100%": { opacity: "0.55" },
           "50%": { opacity: "1" },
         },
@@ -99,7 +99,7 @@ export default {
         "scale-in": "scale-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both",
         "slide-in-right": "slide-in-right 0.35s cubic-bezier(0.22, 1, 0.36, 1) both",
         "slide-in-bottom": "slide-in-bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1) both",
-        "pulse-glow": "pulse-glow 2.4s ease-in-out infinite",
+        "Pulse-glow": "Pulse-glow 2.4s ease-in-out infinite",
         shimmer: "shimmer 1.4s linear infinite",
         "toast-in": "toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both",
         marquee: "marquee 18s linear infinite",

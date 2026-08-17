@@ -33,19 +33,19 @@ export default function MiniPlayer() {
             <Artwork src={currentTrack.thumbnail} alt="" gradient={currentTrack.gradient} className="h-12 w-12 rounded-xl" />
             {isPlaying && (
               <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent shadow-glow-sm">
-                <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-accent-ink" />
+                <span className="h-1.5 w-1.5 animate-Pulse-glow rounded-full bg-accent-ink" />
               </span>
             )}
           </button>
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-ink">
               <span className="truncate">{currentTrack.title}</span>
-              {provider === "youtube" && (
+              {/* {provider === "youtube" && (
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-                  <span className="h-1 w-1 animate-pulse-glow rounded-full bg-emerald-400" />
+                  <span className="h-1 w-1 animate-Pulse-glow rounded-full bg-emerald-400" />
                   YouTube
                 </span>
-              )}
+              )} */}
             </p>
             <p className="truncate text-[12px] text-dim">{currentTrack.artist}</p>
           </div>

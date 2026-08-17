@@ -1,7 +1,7 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   Home, Compass, ListMusic, Heart, History, Users, Disc3,
-  Settings, AudioLines, X, Play, Pause,
+  Settings, X, Play, Pause,
 } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import Artwork from "./Artwork";
@@ -62,11 +62,11 @@ export default function Sidebar({ open, onClose }) {
         {/* logo */}
         <div className="flex items-center justify-between px-5 pb-2 pt-5">
           <Link to="/" onClick={onClose} className="group flex items-center gap-2.5">
-            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl accent-gradient-bg shadow-glow-sm transition-transform duration-200 group-hover:scale-105">
-              <AudioLines className="text-accent-ink" size={19} strokeWidth={2.25} />
+            <span className="p-[3px] relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow-sm transition-transform duration-200 group-hover:scale-105">
+              <img src="/icon.png" alt="Pulse logo" className="h-full w-full object-cover" />
             </span>
             <span className="font-display text-[17px] font-extrabold tracking-[0.22em] text-ink">
-              PULSE
+              Pulse
             </span>
           </Link>
           <button type="button" onClick={onClose} aria-label="Close menu" className="btn-icon h-8 w-8 lg:hidden">
@@ -112,7 +112,7 @@ export default function Sidebar({ open, onClose }) {
                 <Artwork src={currentTrack.thumbnail} alt="" gradient={currentTrack.gradient} className="h-11 w-11 rounded-xl" />
                 {isPlaying && (
                   <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent shadow-glow-sm">
-                    <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-accent-ink" />
+                    <span className="h-1.5 w-1.5 animate-Pulse-glow rounded-full bg-accent-ink" />
                   </span>
                 )}
               </button>

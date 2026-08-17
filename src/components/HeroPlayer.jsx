@@ -57,7 +57,7 @@ export default function HeroPlayer() {
               aria-hidden="true"
             />
             <div
-              className={`absolute -inset-5 rounded-full bg-black/20 blur-2xl ${isPlaying && isActive ? "animate-pulse-glow" : ""}`}
+              className={`absolute -inset-5 rounded-full bg-black/20 blur-2xl ${isPlaying && isActive ? "animate-Pulse-glow" : ""}`}
               aria-hidden="true"
             />
             <button
@@ -97,6 +97,9 @@ export default function HeroPlayer() {
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+            <button type="button" aria-label="Previous track" onClick={previousTrack} className="btn-icon h-12 w-12">
+              <SkipBack size={20} fill="currentColor" />
+            </button>
             <PlayPauseButton
               size="xl"
               playing={isActive && isPlaying}
@@ -105,9 +108,6 @@ export default function HeroPlayer() {
                 else playTrack(featured, { queue: catalog, index: featuredIndex });
               }}
             />
-            <button type="button" aria-label="Previous track" onClick={previousTrack} className="btn-icon h-12 w-12">
-              <SkipBack size={20} fill="currentColor" />
-            </button>
             <button type="button" aria-label="Next track" onClick={nextTrack} className="btn-icon h-12 w-12">
               <SkipForward size={20} fill="currentColor" />
             </button>

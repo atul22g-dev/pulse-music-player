@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Play, Shuffle, Search, RefreshCw, ArrowDownWideNarrow, Clock, ListMusic } from "lucide-react";
+import { Play, Shuffle, Search, ArrowDownWideNarrow, Clock, ListMusic } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import SongList from "../components/SongList";
 import EmptyState from "../components/EmptyState";
 import Artwork from "../components/Artwork";
 import { getPlaylistArt } from "../components/artwork/playlistArtRegistry";
-import { SkeletonSongRow } from "../components/Skeleton";
 import { getPlaylist, getMainPlaylist } from "../data/playlists";
 import { getPlaylistTracks, getPlaylistDuration } from "../utils/library";
 import { formatListDuration, pluralize } from "../utils/format";
@@ -21,7 +20,7 @@ const SORTS = [
 
 export default function PlaylistPage() {
   const { id } = useParams();
-  const { playTrack, savedPlaylists, catalog, syncState, syncNow } = usePlayer();
+  const { playTrack, savedPlaylists, catalog } = usePlayer();
 
   const main = getMainPlaylist();
   const playlist = id ? getPlaylist(id) || savedPlaylists.find((p) => p.id === id) || null : main;
@@ -111,28 +110,6 @@ export default function PlaylistPage() {
             <span>{pluralize(baseTracks.length, "track")}</span>
             <span className="text-faint">·</span>
             <span>{formatListDuration(totalDuration)}</span>
-            {isYouTubePlaylist && (
-              <>
-                <span className="text-faint">·</span>
-                <span className="flex items-center gap-1.5">
-                  <RefreshCw size={12} className={syncState === "syncing" ? "animate-spin text-accent" : syncState === "offline" ? "text-amber-400" : "text-emerald-400"} />
-                  {syncState === "syncing"
-                    ? "Syncing with YouTube…"
-                    : syncState === "offline"
-                      ? "YouTube unreachable — showing local copy"
-                      : `Live YouTube playlist · ${catalog.length} tracks`}
-                </span>
-                <button
-                  type="button"
-                  onClick={syncNow}
-                  disabled={syncState === "syncing"}
-                  className="chip !py-1 text-[11px] disabled:pointer-events-none disabled:opacity-50"
-                >
-                  <RefreshCw size={11} className={syncState === "syncing" ? "animate-spin" : ""} />
-                  Sync now
-                </button>
-              </>
-            )}
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -189,13 +166,7 @@ export default function PlaylistPage() {
 
       {/* songs */}
       <div className="mt-4">
-        {syncState === "syncing" ? (
-          <div aria-label="Loading playlist" className="space-y-1 rounded-2xl border border-white/[0.05] p-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonSongRow key={i} />
-            ))}
-          </div>
-        ) : filtered.length ? (
+        {filtered.length ? (
           <SongList tracks={filtered} showAlbum showHeader />
         ) : (
           <EmptyState

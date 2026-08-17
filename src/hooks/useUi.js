@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
  * then renders instantly on subsequent navigations.
  */
 export function useFirstVisitLoading(key, ms = 500) {
-  const storageKey = `pulse-loaded:${key}`;
+  const storageKey = `Pulse-loaded:${key}`;
   const [ready, setReady] = useState(() => {
     try {
       return sessionStorage.getItem(storageKey) === "1";

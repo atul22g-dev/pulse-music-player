@@ -1,11 +1,11 @@
 /**
- * Track catalog — fully dynamic, never hardcoded.
+ * Track catalog — populated from the live YouTube playlists, never written
+ * by hand.
  *
- * The catalog starts EMPTY and is populated at runtime from the user's live
- * YouTube playlist (see services/youtubeService.js + PlayerContext). A copy of
- * the last successful sync is cached in localStorage so the app is instant and
- * works offline, and the catalog is re-checked automatically so songs added to
- * the YouTube playlist later appear on their own.
+ * The catalog is restored at boot from the last persisted snapshot in
+ * localStorage (see PlayerContext), so the app is instant and works offline.
+ * On a fresh device with no snapshot yet, the bundled SEED_CATALOG
+ * (src/data/seedCatalog.js) is restored first, then refreshed from YouTube.
  *
  * All reads go through the accessors below so every page stays in sync when
  * the catalog is refreshed.
@@ -51,7 +51,7 @@ function normalize(raw, id) {
   };
 }
 
-/** Restore the cached catalog snapshot at boot (before any live sync). */
+/** Restore the cached catalog snapshot at boot. */
 export function restoreCatalog(entries = []) {
   if (!Array.isArray(entries)) return;
   const normalized = [];
@@ -169,9 +169,8 @@ export function getArtists() {
 
 /**
  * Albums derived from the live catalog. Tracks are stamped with their
- * playlist's name as the album at sync time (see PlayerContext), so each API
- * playlist becomes its own album. Album artwork is a generated SVG seeded
- * from the album name.
+ * playlist's name as the album, so each playlist becomes its own album.
+ * Album artwork is a generated SVG seeded from the album name.
  */
 export function getAlbums() {
   const map = new Map();
