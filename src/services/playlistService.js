@@ -1,5 +1,5 @@
 /**
- * playlistService — the list of YouTube playlists PULSE tracks, loaded from an
+ * playlistService — the list of YouTube playlists Pulse tracks, loaded from an
  * API instead of a config file.
  *
  * At boot the app fetches the playlist list from the Atual API

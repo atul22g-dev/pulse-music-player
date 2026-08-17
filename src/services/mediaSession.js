@@ -78,9 +78,9 @@ export function updateMediaSession(track, isPlaying, position = 0, duration = 0)
     try {
       ms.metadata = track
         ? new MediaMetadata({
-            title: track.title || "PULSE",
+            title: track.title || "Pulse",
             artist: track.artist || "Unknown Artist",
-            album: track.album || "PULSE",
+            album: track.album || "Pulse",
             artwork: artworkFor(track),
           })
         : null;

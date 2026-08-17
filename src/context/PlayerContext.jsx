@@ -409,6 +409,7 @@ function usePlayerCore(toast, stateRef, settings, bumpCatalogVersion) {
     queue, queueIndex, shuffle, repeat, currentTrack,
     isPlaying, position, duration, provider, volume, recent,
     queueOpen, loadingTrack, setQueueOpen,
+    setIsPlaying,
     playTrack, togglePlay, nextTrack, previousTrack,
     seekTo, setVolume, toggleShuffle, cycleRepeat,
     addToQueue, removeFromQueue, reorderQueue, clearQueue,
@@ -615,7 +616,7 @@ export function PlayerProvider({ children }) {
   const catalog = useCatalogSync(toast);
   const core = usePlayerCore(toast, stateRef, library.settings, catalog.bumpCatalogVersion);
 
-  const { queue, queueIndex, shuffle, repeat, currentTrack, isPlaying, position, duration, provider, volume, recent, queueOpen, loadingTrack } = core;
+  const { queue, queueIndex, shuffle, repeat, currentTrack, isPlaying, position, duration, provider, volume, recent, queueOpen, loadingTrack, setIsPlaying } = core;
   // Snapshot the latest state into the ref after commit (not during render), so
   // callbacks that read stateRef.current always see current values.
   useEffect(() => {
@@ -653,17 +654,72 @@ export function PlayerProvider({ children }) {
     onSeekTo: core.seekTo,
   });
 
-  // Background playback: when the app is hidden (screen locked / backgrounded)
-  // on mobile, YouTube embeds get suspended by the browser — the engine hands
-  // the audio off to its background-safe synth provider so the music keeps
-  // playing, and hands back to YouTube when the app becomes visible again.
-  // The engine also resumes a suspended Web Audio context on return.
+  // Close detection. On desktop, closing the tab/window fires pagehide /
+  // beforeunload, and we stop the song + play a power-down tone there. On
+  // mobile, closing the app (swiping it away) often NEVER fires those events —
+  // the process is just killed — so we react to visibilitychange → hidden
+  // instead, which fires while the page is still alive (the only time the tone
+  // can actually be heard). leftRef guards against multiple events firing for
+  // the same leave and resets when the app becomes visible again.
+  const leftRef = useRef(false);
   useEffect(() => {
     const onVisibility = () => {
-      engine.handleVisibilityChange(document.visibilityState !== "visible");
+      const hidden = document.visibilityState !== "visible";
+      if (hidden) {
+        // The app left the foreground — tab switched, window minimized,
+        // phone screen locked / app backgrounded, or the tab being closed.
+        // Stop the song and play the power-down tone NOW, while the page is
+        // still alive (a page that is merely hidden can still produce audio;
+        // a page that is truly closed cannot). This replaces the old
+        // keep-playing-in-background behavior.
+        if (!leftRef.current) {
+          leftRef.current = true;
+          engine.playCloseTone();
+        }
+        engine.stop();
+        setIsPlaying(false);
+      } else {
+        leftRef.current = false;
+        // Back in the foreground: wake any audio context the browser
+        // suspended while hidden. Playback stays stopped until the user
+        // presses play.
+        engine.resumeIfSuspended();
+      }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  // Desktop / iOS tab close and back/forward navigation (bfcache): stop the
+  // song and play the power-down tone. The tone is best-effort here — browsers
+  // tear the page down on real unload, so it may not be audible everywhere;
+  // stopping the audio cleanly (scheduler, oscillators, YouTube embed) is the
+  // part that always matters. leftRef also resets on pageshow if the page is
+  // restored from the bfcache.
+  useEffect(() => {
+    const onLeave = () => {
+      // Tone FIRST — it must be scheduled while the AudioContext is still
+      // running. stop() silences the music but keeps the context alive so the
+      // blip can actually be heard (scheduling it after a suspend would freeze
+      // it before it ever plays).
+      if (!leftRef.current) {
+        leftRef.current = true;
+        engine.playCloseTone();
+      }
+      engine.stop();
+      setIsPlaying(false);
+    };
+    const onShow = () => {
+      leftRef.current = false;
+    };
+    window.addEventListener("pagehide", onLeave);
+    window.addEventListener("beforeunload", onLeave);
+    window.addEventListener("pageshow", onShow);
+    return () => {
+      window.removeEventListener("pagehide", onLeave);
+      window.removeEventListener("beforeunload", onLeave);
+      window.removeEventListener("pageshow", onShow);
+    };
   }, []);
 
   /* ---------------- cross-cutting actions ---------------- */

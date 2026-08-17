@@ -13,7 +13,7 @@ import { usePlayer } from "../context/PlayerContext";
  *  - heights are smoothed (fast attack, slow release) and self-normalized,
  *    so quiet tracks still fill the canvas without constant clipping
  *  - peak caps linger above each bar and drift down — the classic EQ look
- *  - bass energy drives a subtle whole-wave pulse on the beat
+ *  - bass energy drives a subtle whole-wave Pulse on the beat
  *  - reduced motion renders a calm, static pattern
  */
 export default function Visualizer({ bars = 48, className = "", height = 40, ariaLabel = "Audio visualizer" }) {
@@ -52,7 +52,7 @@ export default function Visualizer({ bars = 48, className = "", height = 40, ari
     const level = new Float32Array(bars); // smoothed bar heights
     const peak = new Float32Array(bars);  // lingering peak caps
     let norm = 0.4;   // slow-running average level, used to self-normalize
-    let pulse = 0;    // bass onset → whole-wave pop
+    let Pulse = 0;    // bass onset → whole-wave pop
     let bass = 0;     // last bass energy
     let lastT = 0;
     let bins = null;
@@ -95,19 +95,19 @@ export default function Visualizer({ bars = 48, className = "", height = 40, ari
         norm = Math.max(0.02, norm * (1 - dt * 0.4));
       }
 
-      // Bass onset → beat pulse. The synth bass is a held note, so a rising
+      // Bass onset → beat Pulse. The synth bass is a held note, so a rising
       // low-end spike marks each chord change / kick-like moment.
       if (hasData) {
         if (!bins) bins = binFor(data.length);
         let b = 0;
         for (let i = 0; i < 4; i++) b += data[i];
         b /= 4 * 255;
-        if (b > 0.2 && b > bass * 1.12) pulse = 1;
+        if (b > 0.2 && b > bass * 1.12) Pulse = 1;
         bass = b;
       } else {
         bass = 0;
       }
-      pulse = Math.max(0, pulse - dt * 2.4);
+      Pulse = Math.max(0, Pulse - dt * 2.4);
 
       const n = bars;
       const gap = (w / n) * 0.35;
@@ -141,7 +141,7 @@ export default function Visualizer({ bars = 48, className = "", height = 40, ari
           peak[i] = v;
         }
 
-        const pop = 1 + pulse * 0.16;
+        const pop = 1 + Pulse * 0.16;
         const bh = Math.max(2, v * usable * pop);
         const x = i * (bw + gap);
         const y = (h - bh) / 2;
@@ -151,7 +151,7 @@ export default function Visualizer({ bars = 48, className = "", height = 40, ari
         const r = Math.round(accent[0] + (strong[0] - accent[0]) * mix);
         const g = Math.round(accent[1] + (strong[1] - accent[1]) * mix);
         const b = Math.round(accent[2] + (strong[2] - accent[2]) * mix);
-        const alpha = Math.min(1, (isPlaying ? 0.42 + v * 0.5 : 0.16 + v * 0.12) * (1 + pulse * 0.3));
+        const alpha = Math.min(1, (isPlaying ? 0.42 + v * 0.5 : 0.16 + v * 0.12) * (1 + Pulse * 0.3));
         const radius = Math.min(bw / 2, 3);
 
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;

@@ -149,17 +149,16 @@ export default function SettingsPage() {
       {/* background music */}
       <Card title="Background music" icon={Headphones}>
         <p className="mb-4 text-[13px] leading-relaxed text-dim">
-          PULSE keeps playing when you switch apps or lock your phone — with full
-          controls on the lock screen. Just install it as an app first: browsers
-          pause audio when a page is fully closed, but the installed app keeps the
-          music alive with the screen off.
+          Playback stops with a short tone whenever the app leaves the foreground
+          — switch tabs, minimize the window, lock your phone, or close the app.
+          The song pauses right away and the tone plays as the app goes quiet.
         </p>
         <ol className="space-y-3">
           {[
             [
               <Smartphone key="s" size={17} className="mt-0.5 shrink-0 text-accent" />,
               <>
-                <span className="font-semibold text-ink">Open PULSE in your browser</span>
+                <span className="font-semibold text-ink">Open Pulse in your browser</span>
                 <span className="block text-[11.5px] text-faint">On your phone — Chrome on Android, Safari on iPhone.</span>
               </>,
             ],
@@ -177,7 +176,7 @@ export default function SettingsPage() {
               <>
                 <span className="font-semibold text-ink">Play from the installed app</span>
                 <span className="block text-[11.5px] text-faint">
-                  Lock the phone — music keeps playing, with play / pause / skip / scrub on the lock screen.
+                  Lock the phone — playback stops with the tone; play / pause / skip / scrub stay on the lock screen.
                 </span>
               </>,
             ],
@@ -194,8 +193,8 @@ export default function SettingsPage() {
           ))}
         </ol>
         <p className="mt-4 border-t border-white/[0.06] pt-4 text-[11.5px] leading-relaxed text-faint">
-          Desktop is covered too: switch tabs or minimize the window and the music
-          keeps going, with media keys (⏯ ⏮ ⏭) controlling playback.
+          Desktop works the same way: switch tabs or minimize the window and playback
+          stops with the tone, while media keys (⏯ ⏮ ⏭) still control it.
         </p>
       </Card>
 
@@ -278,7 +277,7 @@ export default function SettingsPage() {
 
           <p className="border-t border-white/[0.06] pt-4 text-center text-[11px] leading-relaxed text-faint">
             Tracks play through YouTube's official embed — nothing is downloaded or extracted. If YouTube is
-            unreachable or a video is blocked, PULSE falls back to an original ambient preview generated locally.
+            unreachable or a video is blocked, Pulse falls back to an original ambient preview generated locally.
             Playback state persists via <span className="font-mono">{STORAGE_KEYS.queue}</span>.
           </p>
         </div>

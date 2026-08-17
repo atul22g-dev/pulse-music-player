@@ -122,7 +122,7 @@ class AudioEngine {
       return;
     }
     const host = document.createElement("div");
-    host.id = "pulse-yt-host";
+    host.id = "Pulse-yt-host";
     host.setAttribute("aria-hidden", "true");
     host.style.cssText = "position:absolute;left:-10000px;top:0;width:2px;height:2px;overflow:hidden;";
     document.body.appendChild(host);
@@ -570,6 +570,77 @@ class AudioEngine {
     let sum = 0;
     for (let i = 0; i < data.length; i++) sum += data[i];
     return sum / data.length / 255;
+  }
+
+  /**
+   * Full stop used when the app is closing: pauses the YouTube embed, halts the
+   * synth scheduler, kills every scheduled oscillator and silences the audio
+   * context so no sound can linger after the page goes away. Unlike destroy(),
+   * the engine stays usable afterwards — e.g. if the page is restored from the
+   * back/forward cache, pressing play picks up exactly where it left off.
+   */
+  stop() {
+    clearTimeout(this._ytVerifyTimer);
+    this._pendingPlay = false;
+    this._handedOff = false;
+    this.playing = false;
+    if (this.youtubeReady && this.youtube) {
+      try {
+        this.youtube.pauseVideo();
+      } catch {
+        /* noop */
+      }
+    }
+    this._stopScheduler();
+    this._killScheduled();
+    // Deliberately NOT suspending/closeing the AudioContext here: a suspended
+    // context freezes everything scheduled on it — including the power-down
+    // tone played just before stop() on app close. Killing the synth's
+    // scheduled oscillators already silences the music, and a running context
+    // with no active sources is silent anyway. The page teardown reclaims the
+    // context itself on a real unload.
+    this._emit();
+  }
+
+  /**
+   * Best-effort "power-down" tone played as the app closes. Browsers tear a
+   * page down fast on real unload, so the tone is mainly audible when the
+   * close takes a beat (e.g. beforeunload is still running or the page is
+   * bfcached); it never blocks or delays the close and it never throws.
+   */
+  playCloseTone() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      // Reuse the running context when one exists — a fresh context created
+      // during unload is far less likely to actually be heard.
+      const ctx = this.ctx && this.ctx.state !== "closed" ? this.ctx : new Ctx();
+      if (ctx.state === "suspended") ctx.resume();
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.value = 0.25; // quiet — a goodbye blip, not an alarm
+      master.connect(ctx.destination);
+      // Two soft descending notes (E5 -> C5), each ~0.2s.
+      const notes = [
+        { freq: 659.25, offset: 0, dur: 0.2 },
+        { freq: 523.25, offset: 0.22, dur: 0.28 },
+      ];
+      notes.forEach(({ freq, offset, dur }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + offset);
+        gain.gain.linearRampToValueAtTime(1, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + dur);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(now + offset);
+        osc.stop(now + offset + dur + 0.05);
+      });
+    } catch {
+      /* tone is best-effort — never break the close */
+    }
   }
 
   destroy() {

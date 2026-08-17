@@ -1,5 +1,5 @@
 /**
- * sw.js — PULSE service worker.
+ * sw.js — Pulse service worker.
  *
  * Caches the app shell (index.html, manifest, icons, and — after first load —
  * the hashed Vite assets) so the app opens instantly and works offline.
@@ -10,7 +10,7 @@
  * CDNs, fonts, the playlist API) always goes straight to the network.
  */
 
-const CACHE = "pulse-shell-v1";
+const CACHE = "Pulse-shell-v1";
 
 // Relative to the worker's scope so subpath deploys (GitHub Pages, Vercel
 // previews) resolve correctly.

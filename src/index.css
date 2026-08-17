@@ -363,5 +363,5 @@ html[data-reduce-motion="true"] *::after {
   filter: blur(70px);
   opacity: 0.5;
   pointer-events: none;
-  animation: pulse-glow 6s ease-in-out infinite;
+  animation: Pulse-glow 6s ease-in-out infinite;
 }

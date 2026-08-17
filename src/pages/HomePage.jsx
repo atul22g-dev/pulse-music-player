@@ -101,7 +101,7 @@ export default function HomePage() {
 
       <p className="flex items-center justify-center gap-2 pb-4 text-[11.5px] text-faint">
         <ListMusic size={13} />
-        Built with PULSE · {catalog.length} {catalog.length === 1 ? "track" : "tracks"} in your library
+        Built with Pulse · {catalog.length} {catalog.length === 1 ? "track" : "tracks"} in your library
       </p>
     </div>
   );

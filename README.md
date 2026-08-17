@@ -1,4 +1,4 @@
-# PULSE — A Personal Music Player
+# Pulse — A Personal Music Player
 
 A premium, cinematic music-player web app — a personal Spotify/Apple-Music-style
 dashboard with its own identity. Dark glassmorphism UI, a generative audio
@@ -43,7 +43,7 @@ persist across refreshes via LocalStorage (`music-player-*` keys).
 
 ## Background music
 
-PULSE plays in the background — switch tabs, minimize the window, or lock
+Pulse plays in the background — switch tabs, minimize the window, or lock
 your phone and the music keeps going:
 
 - **Media Session API** (`src/services/mediaSession.js`): the OS shows the
@@ -60,7 +60,7 @@ your phone and the music keeps going:
   backgrounded.
 - **Automatic background handoff**: mobile browsers suspend YouTube embeds
   the moment the app is backgrounded or the screen locks — that would stop
-  the music. PULSE detects it, hands the current track off to the
+  the music. Pulse detects it, hands the current track off to the
   background-safe synth preview *at the same position* (with a toast so
   you know), keeps playing through the lock screen with full media-session
   controls, and hands back to the real YouTube track when the app is
@@ -122,7 +122,7 @@ Swap in any other provider later without touching the player context or UI.
 ## Configuring your playlists
 
 **The song catalog is dynamic — it comes from the live YouTube playlists, never
-written by hand.** The playlists PULSE tracks are fetched at boot from the Atual API
+written by hand.** The playlists Pulse tracks are fetched at boot from the Atual API
 (`https://apis-atual-dev.vercel.app/api/playlists`), authenticated with the
 **API key** — sent as the `X-API-Key` header and the `api_key` query param.
 Set it in `.env.local`:
@@ -163,7 +163,7 @@ swapped via `VITE_PLAYLISTS_API_URL`.
 - The first entry is the app's main playlist (route `/playlist`).
 - The playlist list is fetched at boot (and cached in LocalStorage), so the
   sidebar and playlist routes reflect the latest config. When no API key is
-  configured (or the API is unreachable), PULSE falls back to the built-in
+  configured (or the API is unreachable), Pulse falls back to the built-in
   defaults in `src/services/playlistService.js`.
 
 ### Where the catalog comes from

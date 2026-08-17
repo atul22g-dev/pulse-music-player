@@ -57,7 +57,7 @@ export default function HeroPlayer() {
               aria-hidden="true"
             />
             <div
-              className={`absolute -inset-5 rounded-full bg-black/20 blur-2xl ${isPlaying && isActive ? "animate-pulse-glow" : ""}`}
+              className={`absolute -inset-5 rounded-full bg-black/20 blur-2xl ${isPlaying && isActive ? "animate-Pulse-glow" : ""}`}
               aria-hidden="true"
             />
             <button

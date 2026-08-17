@@ -36,7 +36,7 @@ export function PageLoader() {
           />
         ))}
       </div>
-      <p className="font-display text-sm font-semibold tracking-[0.3em] text-faint">PULSE</p>
+      <p className="font-display text-sm font-semibold tracking-[0.3em] text-faint">Pulse</p>
     </div>
   );
 }
