@@ -1,0 +1,19 @@
+{
+  "name": "PULSE — Music Player",
+  "short_name": "PULSE",
+  "description": "Your music, your mood — a premium personal music player.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07070b",
+  "theme_color": "#07070b",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Palette, SlidersHorizontal, Database, Info, Check, Moon, Sun, MonitorSmartphone, RefreshCw, Trash2, Heart, History } from "lucide-react";
+import { Palette, SlidersHorizontal, Database, Info, Check, Moon, Sun, MonitorSmartphone, RefreshCw, Trash2, Heart, History, Headphones, Smartphone, Lock } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import Toggle from "../components/Toggle";
 import { STORAGE_KEYS } from "../services/storage";
@@ -39,7 +39,7 @@ export default function SettingsPage() {
   const {
     settings, updateSettings, setVolume, volume,
     clearRecentlyPlayed, clearFavorites, resetApp, recent, favorites,
-    youtubePlaylists,
+    syncNow, syncing,
   } = usePlayer();
 
   return (
@@ -146,9 +146,78 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* background music */}
+      <Card title="Background music" icon={Headphones}>
+        <p className="mb-4 text-[13px] leading-relaxed text-dim">
+          PULSE keeps playing when you switch apps or lock your phone — with full
+          controls on the lock screen. Just install it as an app first: browsers
+          pause audio when a page is fully closed, but the installed app keeps the
+          music alive with the screen off.
+        </p>
+        <ol className="space-y-3">
+          {[
+            [
+              <Smartphone key="s" size={17} className="mt-0.5 shrink-0 text-accent" />,
+              <>
+                <span className="font-semibold text-ink">Open PULSE in your browser</span>
+                <span className="block text-[11.5px] text-faint">On your phone — Chrome on Android, Safari on iPhone.</span>
+              </>,
+            ],
+            [
+              <Lock key="l" size={17} className="mt-0.5 shrink-0 text-accent" />,
+              <>
+                <span className="font-semibold text-ink">Add it to your home screen</span>
+                <span className="block text-[11.5px] text-faint">
+                  Chrome: ⋮ → “Add to Home screen”. Safari: Share → “Add to Home Screen”.
+                </span>
+              </>,
+            ],
+            [
+              <Headphones key="h" size={17} className="mt-0.5 shrink-0 text-accent" />,
+              <>
+                <span className="font-semibold text-ink">Play from the installed app</span>
+                <span className="block text-[11.5px] text-faint">
+                  Lock the phone — music keeps playing, with play / pause / skip / scrub on the lock screen.
+                </span>
+              </>,
+            ],
+          ].map(([icon, copy], i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 font-mono text-[10.5px] font-bold text-accent">
+                {i + 1}
+              </span>
+              <div className="flex items-start gap-3 text-[13px]">
+                {icon}
+                <span>{copy}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-4 border-t border-white/[0.06] pt-4 text-[11.5px] leading-relaxed text-faint">
+          Desktop is covered too: switch tabs or minimize the window and the music
+          keeps going, with media keys (⏯ ⏮ ⏭) controlling playback.
+        </p>
+      </Card>
+
       {/* data */}
       <Card title="Your data" icon={Database}>
         <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => syncNow()}
+            disabled={syncing}
+            className="flex w-full items-center gap-3 rounded-2xl border border-accent/25 bg-accent/[0.07] px-4 py-3 text-left transition-colors hover:border-accent/45 disabled:opacity-60"
+          >
+            <RefreshCw size={17} className={syncing ? "animate-spin text-accent" : "text-accent"} />
+            <span className="flex-1">
+              <span className="block text-[13px] font-semibold text-ink">
+                {syncing ? "Syncing playlists…" : "Sync playlists now"}
+              </span>
+              <span className="block text-[11.5px] text-dim">
+                Pull the latest songs from your YouTube playlists
+              </span>
+            </span>
+          </button>
           <button
             type="button"
             onClick={clearRecentlyPlayed}
@@ -192,31 +261,6 @@ export default function SettingsPage() {
       {/* about */}
       <Card title="About & shortcuts" icon={Info}>
         <div className="space-y-4">
-          <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[12.5px] text-dim">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <RefreshCw size={14} className="text-accent" />
-              <span className="font-semibold text-ink">YouTube playlist sync</span>
-              <span>·</span>
-              <span>Syncing live, no API key needed</span>
-            </div>
-            <ul className="flex flex-wrap gap-1.5">
-              {youtubePlaylists.map((p) => (
-                <li key={p.id} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1">
-                  <span className="text-[12px] font-semibold text-ink">{p.name}</span>
-                  <span className="font-mono text-[10.5px] text-faint">{p.id}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-[11.5px] leading-relaxed text-faint">
-              The playlist list is fetched from the{' '}
-              <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10.5px] text-ink">apis-atual-dev.vercel.app/api/playlists</span>{' '}
-              API (authenticated with{' '}
-              <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10.5px] text-ink">VITE_ATUAL_API_KEY</span>)
-              — each entry becomes its own playlist in the app. Playback is read and
-              streamed through YouTube's official player — no YouTube API key required.
-            </p>
-          </div>
-
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
             {[
               ["Space", "Play / pause"],

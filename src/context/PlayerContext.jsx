@@ -19,19 +19,12 @@ import {
   getCatalogSnapshot,
   updateTrackDuration,
 } from "../data/tracks";
-import {
-  syncPlaylistFromYouTube,
-  fetchPlaylistVideoIdsFromPlayer,
-} from "../services/youtubeService";
-import {
-  getPlaylists,
-  subscribePlaylists,
-  refreshPlaylistsFromApi,
-} from "../services/playlistService";
+import { refreshPlaylistsFromApi, getPlaylists } from "../services/playlistService";
+import { syncPlaylistFromYouTube } from "../services/youtubeService";
+import { SEED_CATALOG } from "../data/seedCatalog";
 import { uid, shuffleArray } from "../utils/misc";
+import { useMediaSession } from "../hooks/useMediaSession";
 import { useToast } from "./ToastContext";
-
-const RESYNC_INTERVAL_MS = 10 * 60 * 1000; // re-check the playlists every 10 minutes
 
 const PlayerContext = createContext(null);
 
@@ -198,9 +191,12 @@ function usePlayerCore(toast, stateRef, settings, bumpCatalogVersion) {
         if (s.settings.autoplay) {
           const rest = shuffleArray(s.queue).filter((t) => t.id !== s.queue[s.queueIndex]?.id);
           const newQueue = [s.currentTrack, ...rest];
-          const next = newQueue[1] || newQueue[0];
+          // A single-track queue reshuffles back onto the same track — keep
+          // the index in bounds so the current track never goes blank.
+          const nextIdx = newQueue.length > 1 ? 1 : 0;
+          const next = newQueue[nextIdx];
           if (next) {
-            setQueueState((prev) => ({ ...prev, queue: newQueue, queueIndex: 1 }));
+            setQueueState((prev) => ({ ...prev, queue: newQueue, queueIndex: nextIdx }));
             startEngine(next, { fromEnded: true });
             setRecent((prev) => addRecentEntry(prev, next, RECENT_LIMIT));
           }
@@ -285,7 +281,7 @@ function usePlayerCore(toast, stateRef, settings, bumpCatalogVersion) {
         if (realDuration > 0 && Math.abs(realDuration - s.duration) > 0.4) {
           setDuration(realDuration);
           // Persist the real duration back into the catalog (matters when the
-          // catalog was synced without durations, e.g. via the oEmbed path).
+          // catalog was cached without durations).
           if (updateTrackDuration(s.currentTrack?.id, realDuration)) {
             save(STORAGE_KEYS.catalog, getCatalogSnapshot());
             bumpCatalogVersion();
@@ -498,160 +494,115 @@ function useLibrary(toast, stateRef) {
   };
 }
 
-/* ---------------- catalog sync ---------------- */
+/* ---------------- catalog ---------------- */
 
 function useCatalogSync(toast) {
-  // The list of YouTube playlists to track, fetched from the API at boot
-  // (services/playlistService.js) — cached locally with a default fallback.
-  const [youtubePlaylists, setYoutubePlaylists] = useState(getPlaylists);
-
-  useEffect(
-    () => subscribePlaylists(() => setYoutubePlaylists(getPlaylists())),
-    []
-  );
-
-  // Catalog: starts from the localStorage cache (so the app is instant and
-  // offline-capable) and is refreshed from the live YouTube playlists below.
+  // Catalog: restored from the localStorage cache at boot, so the app is
+  // instant and works offline. When there is no cache yet (a fresh browser —
+  // e.g. a phone opening the LAN URL for the first time) the bundled seed
+  // snapshot is restored so songs are visible immediately, and the live
+  // YouTube refresh below updates it in the background.
+  const seededRef = useRef(false);
   const [catalogVersion, setCatalogVersion] = useState(() => {
     const cached = load(STORAGE_KEYS.catalog, null);
     if (Array.isArray(cached) && cached.length) {
       restoreCatalog(cached);
       // Persist the freshly-classified snapshot so the cache self-heals.
       save(STORAGE_KEYS.catalog, getCatalogSnapshot());
+    } else {
+      // Fresh device (localStorage is per-origin, so a cache built on one
+      // host never reaches another) — seed the library from the bundle so it
+      // is never empty, even offline or while YouTube is unreachable.
+      restoreCatalog(SEED_CATALOG);
+      seededRef.current = true;
+      save(STORAGE_KEYS.catalog, getCatalogSnapshot());
     }
     return 0;
   });
-  const [syncState, setSyncState] = useState("idle"); // idle | syncing | ok | offline
-  const syncingRef = useRef(false);
 
-  const applyPlaylist = useCallback((playlistId, entries) => {
-    const { added, removed } = setPlaylistEntries(playlistId, entries);
-    save(STORAGE_KEYS.catalog, getCatalogSnapshot());
-    setCatalogVersion((v) => v + 1);
-    return { added, removed };
+  // Load the playlist list (names + ids) from the API once at boot so the
+  // sidebar and playlist routes reflect the latest config; falls back to the
+  // cached or default list when offline.
+  useEffect(() => {
+    refreshPlaylistsFromApi();
   }, []);
 
-  const announceSync = useCallback(
-    (added, removed) => {
-      if (added > 0) {
-        toast.push(`Synced ${added} new ${added === 1 ? "song" : "songs"} from your YouTube playlists`, "success");
-      } else if (removed > 0) {
-        toast.push(`Playlist updated — ${removed} ${removed === 1 ? "song" : "songs"} removed`, "info");
+  const [syncing, setSyncing] = useState(false);
+  const syncingRef = useRef(false);
+
+  /**
+   * Full on-demand sync (Settings → Sync playlists now, and the first-visit
+   * bootstrap): pull the latest playlist config from the API, sync every
+   * configured playlist from YouTube, merge the results into the catalog,
+   * persist, and announce what changed. Guarded so it can never run twice at
+   * once (the sync drives a single shared hidden YouTube player).
+   */
+  const syncNow = useCallback(
+    async (opts = {}) => {
+      if (syncingRef.current) return { added: 0, removed: 0, ran: false };
+      syncingRef.current = true;
+      setSyncing(true);
+      try {
+        // Fresh playlist config (API first, cached fallback) so every
+        // currently-configured playlist is covered.
+        await refreshPlaylistsFromApi(true);
+        const playlists = getPlaylists();
+        let added = 0;
+        let removed = 0;
+        let failures = 0;
+        for (const pl of playlists) {
+          try {
+            const { entries } = await syncPlaylistFromYouTube(pl.id);
+            // Each API playlist doubles as an album: stamp its name as the
+            // track's album so the library's album view mirrors the API.
+            const stamped = entries.map((e) => ({
+              ...e,
+              playlistId: pl.id,
+              playlistName: pl.name,
+              album: pl.name,
+            }));
+            const res = setPlaylistEntries(pl.id, stamped);
+            added += res.added;
+            removed += res.removed;
+          } catch {
+            failures += 1;
+          }
+        }
+        save(STORAGE_KEYS.catalog, getCatalogSnapshot());
+        setCatalogVersion((v) => v + 1);
+        if (added > 0) {
+          toast.push(`Synced ${added} new ${added === 1 ? "song" : "songs"} from your YouTube playlists`, "success");
+        } else if (removed > 0) {
+          toast.push(`Playlist updated — ${removed} ${removed === 1 ? "song" : "songs"} removed`, "info");
+        } else if (failures === playlists.length) {
+          if (!opts.quiet) toast.push("Couldn't reach YouTube — your library is unchanged", "error");
+        } else if (failures > 0) {
+          if (!opts.quiet) toast.push("Synced — some playlists were unreachable", "info");
+        } else if (!opts.quiet) {
+          toast.push("Your library is up to date", "info");
+        }
+        return { added, removed, ran: true };
+      } finally {
+        syncingRef.current = false;
+        setSyncing(false);
       }
     },
     [toast]
   );
 
-  /** Sync every configured playlist and merge the results into the catalog. */
-  const syncNow = useCallback(async () => {
-    if (syncingRef.current) return { added: 0, removed: 0 };
-    syncingRef.current = true;
-    setSyncState("syncing");
-    let added = 0;
-    let removed = 0;
-    try {
-      // Playlists are synced strictly one at a time: the fetches share a single
-      // hidden YouTube player and each result merges into the same catalog, so
-      // running them concurrently would corrupt both. The promise chain makes
-      // that ordering explicit.
-      let chain = Promise.resolve();
-      for (const pl of youtubePlaylists) {
-        chain = chain.then(async () => {
-          const { entries } = await syncPlaylistFromYouTube(pl.id);
-          // Each API playlist doubles as an album: stamp its name as the
-          // track's album so the library's album view mirrors the API.
-          const stamped = entries.map((e) => ({ ...e, playlistId: pl.id, playlistName: pl.name, album: pl.name }));
-          const res = applyPlaylist(pl.id, stamped);
-          added += res.added;
-          removed += res.removed;
-        });
-      }
-      await chain;
-      setSyncState("ok");
-      announceSync(added, removed);
-      return { added, removed };
-    } catch {
-      setSyncState("offline");
-      return { added: 0, removed: 0 };
-    } finally {
-      syncingRef.current = false;
-    }
-  }, [applyPlaylist, announceSync, youtubePlaylists]);
-
-  // Boot sync + periodic re-check: songs added to any configured YouTube
-  // playlist later show up automatically (a cheap id comparison per playlist,
-  // every 10 minutes).
+  // First visit on a new device: refresh the seeded catalog from the live
+  // YouTube playlists so newly added songs show up, and persist the result.
+  // Devices with their own cache skip this entirely.
   useEffect(() => {
-    let active = true;
-    let ranOnce = false;
-    const lightCheck = async () => {
-      try {
-        // Id checks also share the single hidden player, so each playlist is
-        // checked in turn via an explicit sequential chain.
-        let needsSync = false;
-        let chain = Promise.resolve();
-        for (const pl of youtubePlaylists) {
-          chain = chain.then(async () => {
-            const { ids } = await fetchPlaylistVideoIdsFromPlayer(pl.id);
-            const current = [];
-            for (const t of getAllTracks()) {
-              if (t.playlistIds?.includes(pl.id)) current.push(t.id);
-            }
-            const currentSet = new Set(current);
-            const idsSet = new Set(ids);
-            // New songs added, or songs removed → full metadata sync.
-            if (ids.some((id) => !currentSet.has(id))) needsSync = true;
-            if (current.some((id) => !idsSet.has(id))) needsSync = true;
-          });
-        }
-        await chain;
-        // Ignore stale results if the effect was torn down while awaiting.
-        if (!active) return;
-        if (needsSync) {
-          syncNow();
-        } else {
-          setSyncState((s) => (s === "idle" ? "ok" : s));
-        }
-      } catch {
-        /* offline — keep the cached catalog */
-        if (active) setSyncState((s) => (s === "idle" ? "offline" : s));
-      }
-    };
-    const boot = async () => {
-      if (ranOnce) return;
-      ranOnce = true;
-      // Pull the playlist list from the API first (falls back to the cached
-      // or default list), so the first sync below uses it.
-      await refreshPlaylistsFromApi();
-      if (!active) return;
-      // First light check pulls each playlist's id list; if the catalog is
-      // empty or any playlist changed, a full metadata sync follows.
-      await lightCheck();
-    };
-    boot();
-    const interval = setInterval(() => {
-      lightCheck();
-      // Re-pull the playlist list from the API too, so playlists added there
-      // later (with their songs) show up automatically without a reload.
-      refreshPlaylistsFromApi();
-    }, RESYNC_INTERVAL_MS);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [syncNow, youtubePlaylists]);
+    if (!seededRef.current) return;
+    syncNow({ quiet: true });
+  }, [syncNow]);
 
   const bumpCatalogVersion = useCallback(() => {
     setCatalogVersion((v) => v + 1);
   }, []);
 
-  return {
-    catalogVersion,
-    syncState,
-    syncNow,
-    bumpCatalogVersion,
-    youtubePlaylists,
-  };
+  return { catalogVersion, bumpCatalogVersion, syncing, syncNow };
 }
 
 /* ---------------- provider composition ---------------- */
@@ -672,6 +623,48 @@ export function PlayerProvider({ children }) {
       queue, queueIndex, shuffle, repeat, isPlaying, settings: library.settings, volume, favorites: library.favorites, recent, currentTrack, duration,
     };
   });
+
+  /* ---------------- background playback ---------------- */
+
+  // OS-level controls (lock screen / hardware keys) driven by the same
+  // callbacks the UI uses — guarded so a stale "play" press can't start
+  // nothing or double-toggle.
+  const mediaOnPlay = useCallback(() => {
+    const s = stateRef.current;
+    if (!s.currentTrack || s.isPlaying) return;
+    core.togglePlay();
+  }, [core, stateRef]);
+
+  const mediaOnPause = useCallback(() => {
+    const s = stateRef.current;
+    if (!s.currentTrack || !s.isPlaying) return;
+    core.togglePlay();
+  }, [core, stateRef]);
+
+  useMediaSession({
+    currentTrack,
+    isPlaying,
+    position,
+    duration,
+    onPlay: mediaOnPlay,
+    onPause: mediaOnPause,
+    onNext: core.nextTrack,
+    onPrevious: core.previousTrack,
+    onSeekTo: core.seekTo,
+  });
+
+  // Background playback: when the app is hidden (screen locked / backgrounded)
+  // on mobile, YouTube embeds get suspended by the browser — the engine hands
+  // the audio off to its background-safe synth provider so the music keeps
+  // playing, and hands back to YouTube when the app becomes visible again.
+  // The engine also resumes a suspended Web Audio context on return.
+  useEffect(() => {
+    const onVisibility = () => {
+      engine.handleVisibilityChange(document.visibilityState !== "visible");
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   /* ---------------- cross-cutting actions ---------------- */
 
@@ -747,9 +740,6 @@ export function PlayerProvider({ children }) {
       catalog: getAllTracks(),
       artists: getArtists(),
       albums: getAlbums(),
-      syncState: catalog.syncState,
-      syncNow: catalog.syncNow,
-      youtubePlaylists: catalog.youtubePlaylists,
       playTrack: core.playTrack,
       togglePlay: core.togglePlay,
       nextTrack: core.nextTrack,
@@ -771,12 +761,13 @@ export function PlayerProvider({ children }) {
       deleteSavedPlaylist: library.deleteSavedPlaylist,
       updateSettings: library.updateSettings,
       resetApp,
+      syncNow: catalog.syncNow,
+      syncing: catalog.syncing,
     }),
     [
       currentTrack, isPlaying, position, duration, provider, volume, shuffle, repeat, queue, queueIndex,
       library.favorites, recent, library.settings, library.savedPlaylists, queueOpen, loadingTrack,
-      catalog.catalogVersion, catalog.syncState, catalog.syncNow,
-      catalog.youtubePlaylists,
+      catalog.catalogVersion, catalog.syncing, catalog.syncNow,
       core.playTrack, core.togglePlay, core.nextTrack, core.previousTrack, core.seekTo, core.setVolume,
       core.toggleShuffle, core.cycleRepeat, core.addToQueue, core.removeFromQueue, core.reorderQueue,
       core.clearQueue, saveQueueAsPlaylist, core.setQueueOpen, library.toggleFavorite, library.clearFavorites,

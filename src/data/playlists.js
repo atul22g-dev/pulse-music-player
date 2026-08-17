@@ -18,7 +18,7 @@ export const getYoutubePlaylists = () => {
       list: source.map((cfg) => ({
         id: cfg.id,
         name: cfg.name,
-        description: cfg.description || "Synced live from your YouTube playlist.",
+        description: cfg.description || "Your YouTube playlist.",
         isYouTube: true,
         get trackIds() {
           const ids = [];
@@ -45,9 +45,9 @@ export const albumPlaylistId = (name = "") => {
 /**
  * One playlist per album, derived from the live catalog (see getAlbums in
  * data/tracks.js). `trackIds` is a live getter that returns every catalog
- * track whose album matches, so re-syncing or adding songs updates the
- * album playlists on their own. Memoized against the set of album names so
- * object identity stays stable between renders.
+ * track whose album matches, so the album playlists update on their own.
+ * Memoized against the set of album names so object identity stays stable
+ * between renders.
  */
 let cachedAlbums = null;
 export const getAlbumPlaylists = () => {

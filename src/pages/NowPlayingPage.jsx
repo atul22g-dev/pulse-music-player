@@ -75,12 +75,6 @@ export default function NowPlayingPage() {
             {currentTrack.title}
           </h1>
           <p className="mt-1.5 text-[14px] font-medium text-dim">{currentTrack.artist}</p>
-          {provider === "youtube" && (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-              <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-emerald-400" />
-              Playing live from YouTube
-            </p>
-          )}
         </div>
 
         {/* visualizer */}

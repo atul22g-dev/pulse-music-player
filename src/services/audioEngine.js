@@ -15,7 +15,12 @@
 
 import { hashString, mulberry32, clamp } from "../utils/misc";
 
-const SCHEDULE_AHEAD = 0.6; // seconds of notes scheduled in advance
+// Seconds of notes scheduled in advance. Kept comfortably ahead of a
+// throttled timer: when the tab is hidden browsers slow setInterval down to
+// ~1s (audio-playing pages are exempt from intensive throttling), so a
+// window of only 0.6s would run out of notes between ticks and the music
+// would stutter or stop in the background. 1.5s covers the worst case.
+const SCHEDULE_AHEAD = 1.5;
 const TICK_MS = 120;
 
 const YT_STATES = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
@@ -40,6 +45,9 @@ class AudioEngine {
     this.playing = false;
     this._volume = 0.8;
     this.provider = "synth";
+    // true while the synth is standing in for a parked YouTube embed during
+    // background playback (see handleVisibilityChange)
+    this._handedOff = false;
 
     // youtube provider
     this.youtube = null;
@@ -154,6 +162,11 @@ class AudioEngine {
   }
 
   _onYtState(state) {
+    if (this._handedOff) {
+      // The embed is parked while the synth covers background playback —
+      // ignore its state changes until we hand back to YouTube.
+      return;
+    }
     if (state === YT_STATES.PLAYING) {
       if (!this.playing) {
         this.playing = true;
@@ -177,6 +190,7 @@ class AudioEngine {
 
   _onYtError() {
     this.youtubeFailed = true;
+    this._handedOff = false; // a dead embed can't be handed back to
     const wasPending = this._pendingPlay;
     this._pendingPlay = false;
     if (this.provider === "youtube") {
@@ -262,6 +276,7 @@ class AudioEngine {
   }
 
   _fallbackToSynth(message) {
+    this._handedOff = false;
     // Make sure the embed can't start late and double up with the synth.
     if (this.youtubeReady && this.youtube) {
       try {
@@ -283,6 +298,96 @@ class AudioEngine {
   }
 
   /* ------------------------------------------------------------------ */
+  /*  Background playback (mobile screen lock / app background)          */
+  /* ------------------------------------------------------------------ */
+
+  /** Coarse pointer or a phone UA — the platforms that park YouTube embeds. */
+  get _isMobile() {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+    try {
+      if (window.matchMedia?.("(pointer: coarse)")?.matches) return true;
+    } catch {
+      /* ignore */
+    }
+    return /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(navigator.userAgent || "");
+  }
+
+  /**
+   * Call on every visibilitychange. Mobile browsers suspend YouTube embeds
+   * the moment the app is backgrounded or the screen locks, which would stop
+   * the music. When that happens we hand the current track off to the
+   * background-safe synth provider (it schedules notes well ahead of
+   * throttled timers, so it survives hidden), keeping position, duration and
+   * the media-session controls intact — then hand back to YouTube on return.
+   * Desktop is left alone: YouTube embeds keep playing in background tabs.
+   */
+  handleVisibilityChange(hidden) {
+    if (hidden) {
+      if (this._isMobile && this.provider === "youtube" && this.playing && this.track) {
+        this._handoffToSynth();
+      }
+    } else {
+      this.resumeIfSuspended();
+      if (this._handedOff) this._handBackToYouTube();
+    }
+  }
+
+  _handoffToSynth() {
+    if (this._handedOff || this.provider !== "youtube" || !this.playing || !this.track) return;
+    let pos = 0;
+    try {
+      pos = this.youtube?.getCurrentTime?.() || 0;
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.youtube?.pauseVideo?.();
+    } catch {
+      /* ignore */
+    }
+    this.provider = "synth";
+    if (this.onProviderChange) this.onProviderChange("synth");
+    this._loadSynth(this.track);
+    this._position = pos;
+    this._playSynth();
+    this._handedOff = true;
+    if (this.onMessage) this.onMessage("Background mode — continuing with preview audio");
+  }
+
+  _handBackToYouTube() {
+    if (!this._handedOff) return;
+    this._handedOff = false;
+    const pos = this._currentPlaybackPosition();
+    this._pauseSynth();
+    this.provider = "youtube";
+    if (this.onProviderChange) this.onProviderChange("youtube");
+    this._position = pos;
+    this._pendingPlay = false;
+    const resumeEmbed = () => {
+      if (this.provider !== "youtube" || !this.youtubeReady || !this.youtube) return;
+      try {
+        this.youtube.seekTo(pos, true);
+        this.youtube.playVideo();
+      } catch {
+        /* ignore */
+      }
+    };
+    if (this.youtubeReady && this.youtube) {
+      resumeEmbed();
+      this.playing = true;
+      this._emit();
+    } else {
+      this._pendingPlay = true;
+      this.initYouTube().then((ok) => {
+        if (!ok || this.provider !== "youtube") return;
+        resumeEmbed();
+        this.playing = true;
+        this._emit();
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /*  Public surface                                                     */
   /* ------------------------------------------------------------------ */
 
@@ -297,7 +402,11 @@ class AudioEngine {
     this._progression = track ? this._buildProgression(this._seed) : null;
     this._position = 0;
     this._killScheduled();
-    const provider = this._ytEligible(track) ? "youtube" : "synth";
+    let provider = this._ytEligible(track) ? "youtube" : "synth";
+    // While a background handoff is active (screen locked), keep new tracks
+    // on the synth provider so playback never drops out mid-background;
+    // the next visible transition hands back to YouTube.
+    if (this._handedOff && provider === "youtube") provider = "synth";
     if (provider !== this.provider) {
       this.provider = provider;
       if (this.onProviderChange) this.onProviderChange(provider);
@@ -408,6 +517,21 @@ class AudioEngine {
 
   getVolume() {
     return this._volume;
+  }
+
+  /**
+   * Resume a suspended AudioContext while still "playing" — some mobile
+   * browsers suspend Web Audio when the app is backgrounded or the screen
+   * locks, so playback resumes cleanly when the user comes back.
+   */
+  resumeIfSuspended() {
+    if (this.ctx && this.ctx.state === "suspended") {
+      try {
+        this.ctx.resume();
+      } catch {
+        /* noop */
+      }
+    }
   }
 
   /** Fade the synth master gain (no-op for YouTube — used for crossfade). */
